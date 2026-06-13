@@ -14,3 +14,30 @@ If enough time, I'd like to tackle the following challenges:
 1. Implement further __performance enhancements__ like a basic multigrid solver.
 1. Since I will likely use something OpenGL (or something similar) for rendering, data shouldn't be copied back to the host CPU just to be again pushed to OpenGL for rendering ~> It should be possible to __map CUDA device memory arrays directly to OpenGL Vertex Buffers__.
 1. __Benchmarking__ across various grid dimensions.
+
+
+# Setup, Building and Running
+
+## Linux + WSL
+Make sure the following packages are installed:
+```bash
+sudo apt install -y \
+    build-essential \
+    cmake \
+    libgl1-mesa-dev \
+    libglfw3-dev \
+    libglew-dev \
+    pkg-config
+```
+__For WSL__: Make sure `glxgears` is installed. If it's not, run
+```bash
+sudo apt install -y mesa-utils
+```
+Create a build dir, configure, build, and run the code:
+```bash
+mkdir build
+cd build
+cmake ..
+make
+./cuda_fluid_sim
+```
