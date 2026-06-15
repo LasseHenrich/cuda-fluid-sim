@@ -18,7 +18,25 @@ If enough time, I'd like to tackle the following challenges:
 
 # Setup, Building and Running
 
-## Linux + WSL
+## Windows
+Make sure vcpkg is installed:
+```bash
+git clone https://github.com/microsoft/vcpkg.git
+cd vcpkg
+.\bootstrap-vcpkg.bat
+.\vcpkg install glfw3 glew
+```
+
+Create a build dir, configure, build, and run the code:
+```bash
+mkdir build
+cd build
+cmake ..
+cmake --build . --config Release
+```
+You might need to add `-DCMAKE_TOOLCHAIN_FILE="C:/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake"`to the configure command
+
+## ~~Linux + WSL~~ (Dropped Support)
 Make sure the following packages are installed:
 ```bash
 sudo apt install -y \

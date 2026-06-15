@@ -24,7 +24,7 @@ __global__ void generatePlasma(cudaSurfaceObject_t surface, int width,
 
     uchar4 color = make_uchar4(r, g, b, 255);
 
-    surf2Dwrite(color, surface, x * sizeof(uchar3),
+    surf2Dwrite(color, surface, x * sizeof(uchar4),
                 y);  // write directly to OpenGL texture
 }
 
