@@ -34,9 +34,9 @@ cd build
 cmake ..
 cmake --build . --config Release
 ```
-You might need to add `-DCMAKE_TOOLCHAIN_FILE="C:/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake"`to the configure command
+You might need to add `-DCMAKE_TOOLCHAIN_FILE="C:/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake"` to the configure command
 
-## ~~Linux + WSL~~ (Dropped Support)
+## ~~WSL~~ (dropped support, didn't get it working on WSL)
 Make sure the following packages are installed:
 ```bash
 sudo apt install -y \
@@ -47,7 +47,7 @@ sudo apt install -y \
     libglew-dev \
     pkg-config
 ```
-__For WSL__: Make sure `glxgears` is installed. If it's not, run
+Make sure `glxgears` is installed. If it's not, run
 ```bash
 sudo apt install -y mesa-utils
 ```

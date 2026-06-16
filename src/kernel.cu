@@ -4,8 +4,7 @@
 
 #include "kernel.h"
 
-__global__ void generatePlasma(cudaSurfaceObject_t surface, int width,
-                               int height, float time) {
+__global__ void generatePlasma(cudaSurfaceObject_t surface, int width, int height, float time) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -16,11 +15,9 @@ __global__ void generatePlasma(cudaSurfaceObject_t surface, int width,
     float u = (float)x / width;
     float v = (float)y / height;
 
-    unsigned char r =
-        (unsigned char)(sinf(u * 5.0f + time) * 127.5f + 127.5f);  // [0, 255]
+    unsigned char r = (unsigned char)(sinf(u * 5.0f + time) * 127.5f + 127.5f);  // [0, 255]
     unsigned char g = (unsigned char)(cosf(u * 5.0f + time) * 127.5f + 127.5f);
-    unsigned char b =
-        (unsigned char)(sinf((u + v) * 3.0f + time) * 127.5f + 127.5f);
+    unsigned char b = (unsigned char)(sinf((u + v) * 3.0f + time) * 127.5f + 127.5f);
 
     uchar4 color = make_uchar4(r, g, b, 255);
 
@@ -28,26 +25,19 @@ __global__ void generatePlasma(cudaSurfaceObject_t surface, int width,
                 y);  // write directly to OpenGL texture
 }
 
-void registerTexture(unsigned int glTextureId, cudaGraphicsResource** cudaPBO) {
-    cudaError_t err =
-        cudaGraphicsGLRegisterImage(cudaPBO, glTextureId, GL_TEXTURE_2D,
-                                    cudaGraphicsRegisterFlagsWriteDiscard);
-    if (err != cudaSuccess) {
-        std::cerr << "CUDA Error: Failed to register GL texture: " << cudaGetErrorString(err)
-                  << "\n";
-    }
+/// @brief creates CUDA handle for the texture so CUDA kernels can write into it
+void registerTexture(unsigned int glTexture, cudaGraphicsResource** glTextureCudaHandle) {
+    CHECK_CUDA(cudaGraphicsGLRegisterImage(glTextureCudaHandle, glTexture, GL_TEXTURE_2D, cudaGraphicsRegisterFlagsWriteDiscard));
 }
 
-void unregisterTexture(cudaGraphicsResource* cudaPBO) {
-    cudaGraphicsUnregisterResource(cudaPBO);
-}
+void unregisterTexture(cudaGraphicsResource* glTextureCudaHandle) { cudaGraphicsUnregisterResource(glTextureCudaHandle); }
 
-void runCudaKernel(cudaGraphicsResource* cudaPBO, int width, int height,
-                   float time) {
-    cudaGraphicsMapResources(1, &cudaPBO);
+/// @brief lock texture, run kernels to compute colors, unlock texture
+void runCudaKernel(cudaGraphicsResource* glTextureCudaHandle, int width, int height, float time) {
+    cudaGraphicsMapResources(1, &glTextureCudaHandle);
 
     cudaArray_t textureArray;
-    cudaGraphicsSubResourceGetMappedArray(&textureArray, cudaPBO, 0, 0);
+    cudaGraphicsSubResourceGetMappedArray(&textureArray, glTextureCudaHandle, 0, 0);
 
     cudaResourceDesc resDesc;  // resource descriptor
     memset(&resDesc, 0, sizeof(cudaResourceDesc));
@@ -58,11 +48,10 @@ void runCudaKernel(cudaGraphicsResource* cudaPBO, int width, int height,
     cudaCreateSurfaceObject(&surface, &resDesc);
 
     dim3 blockSize(16, 16);
-    dim3 gridSize((width + blockSize.x - 1) / blockSize.x,
-                  (height + blockSize.y - 1) / blockSize.y);
+    dim3 gridSize((width + blockSize.x - 1) / blockSize.x, (height + blockSize.y - 1) / blockSize.y);
 
     generatePlasma<<<gridSize, blockSize>>>(surface, width, height, time);
 
     cudaDestroySurfaceObject(surface);
-    cudaGraphicsUnmapResources(1, &cudaPBO);
+    cudaGraphicsUnmapResources(1, &glTextureCudaHandle);
 }
