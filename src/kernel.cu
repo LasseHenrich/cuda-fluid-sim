@@ -34,7 +34,7 @@ void unregisterTexture(cudaGraphicsResource* glTextureCudaHandle) { cudaGraphics
 
 /// @brief lock texture, run kernels to compute colors, unlock texture
 void runCudaKernel(cudaGraphicsResource* glTextureCudaHandle, int width, int height, float time) {
-    cudaGraphicsMapResources(1, &glTextureCudaHandle);
+    cudaGraphicsMapResources(1, &glTextureCudaHandle); // locks texture and handing ownership to cuda
 
     cudaArray_t textureArray;
     cudaGraphicsSubResourceGetMappedArray(&textureArray, glTextureCudaHandle, 0, 0);
