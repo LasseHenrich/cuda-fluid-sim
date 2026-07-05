@@ -3,10 +3,14 @@
 
 #include <iostream>
 
-#include "kernel.h"
+#include "interop.h"
+#include "kernels/plasmaKernel.h"
 
-const int WIDTH = 800;
-const int HEIGHT = 600;
+const int WINDOW_WIDTH = 800;
+const int WINDOW_HEIGHT = 600;
+
+const int GRID_WIDTH = 512;
+const int GRID_HEIGHT = 512;
 
 void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
@@ -24,7 +28,7 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "CUDA Fluid Simulator", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "CUDA Fluid Simulator", NULL, NULL);
     if (!window) {
         std::cerr << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -44,7 +48,7 @@ int main() {
     glBindTexture(GL_TEXTURE_2D,
                   glTexture);  // telling OpenGL that any altered settings
                                // should apply to this texture id
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, WIDTH, HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, GRID_WIDTH, GRID_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE,
                  NULL);  // allocate empty, uninitialized VRAM memory on the gpu
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);  // typical minification filter
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);  // typical magnification filter
@@ -62,14 +66,14 @@ int main() {
 
         float time = (float)glfwGetTime();
 
-        runCudaKernel(glTextureCudaHandle, WIDTH, HEIGHT, time);
+        runCudaKernel(glTextureCudaHandle, GRID_WIDTH, GRID_HEIGHT, time);
 
         glBindFramebuffer(GL_READ_FRAMEBUFFER, blitFBO);  // prepare fbo for blitting / read operation
         glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, glTexture,
                                0);  // attach CUDA-modified texture into container's reading slot
 
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);  // active window screen as draw destination
-        glBlitFramebuffer(0, 0, WIDTH, HEIGHT, 0, 0, WIDTH, HEIGHT, GL_COLOR_BUFFER_BIT,
+        glBlitFramebuffer(0, 0, GRID_WIDTH, GRID_HEIGHT, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, GL_COLOR_BUFFER_BIT,
                           GL_NEAREST);  // Blitting: Copies pixels from read destination to draw destination
 
         glfwSwapBuffers(window);  // prepare next frame

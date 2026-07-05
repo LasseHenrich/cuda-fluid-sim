@@ -2,8 +2,10 @@
 
 #include <iostream>
 
-#include "kernel.h"
+#include "helper.h"
+#include "kernels/plasmaKernel.h"
 
+/// @brief Test plasma kernel, purely for debugging
 __global__ void generatePlasma(cudaSurfaceObject_t surface, int width, int height, float time) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -25,19 +27,12 @@ __global__ void generatePlasma(cudaSurfaceObject_t surface, int width, int heigh
                 y);  // write directly to OpenGL texture
 }
 
-/// @brief creates CUDA handle for the texture so CUDA kernels can write into it
-void registerTexture(unsigned int glTexture, cudaGraphicsResource** glTextureCudaHandle) {
-    CHECK_CUDA(cudaGraphicsGLRegisterImage(glTextureCudaHandle, glTexture, GL_TEXTURE_2D, cudaGraphicsRegisterFlagsWriteDiscard));
-}
-
-void unregisterTexture(cudaGraphicsResource* glTextureCudaHandle) { cudaGraphicsUnregisterResource(glTextureCudaHandle); }
-
 /// @brief lock texture, run kernels to compute colors, unlock texture
 void runCudaKernel(cudaGraphicsResource* glTextureCudaHandle, int width, int height, float time) {
-    cudaGraphicsMapResources(1, &glTextureCudaHandle); // locks texture and handing ownership to cuda
+    CHECK_CUDA(cudaGraphicsMapResources(1, &glTextureCudaHandle)); // locks texture and handing ownership to cuda
 
     cudaArray_t textureArray;
-    cudaGraphicsSubResourceGetMappedArray(&textureArray, glTextureCudaHandle, 0, 0);
+    CHECK_CUDA(cudaGraphicsSubResourceGetMappedArray(&textureArray, glTextureCudaHandle, 0, 0));
 
     cudaResourceDesc resDesc;  // resource descriptor
     memset(&resDesc, 0, sizeof(cudaResourceDesc));
@@ -45,13 +40,14 @@ void runCudaKernel(cudaGraphicsResource* glTextureCudaHandle, int width, int hei
     resDesc.res.array.array = textureArray;
 
     cudaSurfaceObject_t surface;
-    cudaCreateSurfaceObject(&surface, &resDesc);
+    CHECK_CUDA(cudaCreateSurfaceObject(&surface, &resDesc));
 
     dim3 blockSize(16, 16);
     dim3 gridSize((width + blockSize.x - 1) / blockSize.x, (height + blockSize.y - 1) / blockSize.y);
 
     generatePlasma<<<gridSize, blockSize>>>(surface, width, height, time);
+    CHECK_CUDA(cudaGetLastError()); // kernel launches are silent and asynchronous otherwise
 
-    cudaDestroySurfaceObject(surface);
-    cudaGraphicsUnmapResources(1, &glTextureCudaHandle);
+    CHECK_CUDA(cudaDestroySurfaceObject(surface));
+    CHECK_CUDA(cudaGraphicsUnmapResources(1, &glTextureCudaHandle));
 }

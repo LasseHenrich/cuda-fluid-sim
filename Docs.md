@@ -60,8 +60,9 @@ where $\alpha,\beta$ are constants.
 # Simulation implementation
 
 ## Representation
-tbd
+Standard would be using a **collocated** grid, where velocity components and pressure live at the exact same pixel centers. However, with this, spatial derivatives for cell $i$ will look at indices $i+1$ and $i-1$, skipping the cell itself, which may result in **checkerboard instability**.
 
+&rarr; Instead, we may need to use a **Marker and Cell** (MAC) grid layout, i.e. storing the pressure at the cell centers, but shifting horizontal velocity components to the vertical cell faces and vertical velocity components to the horizontal cell faces. Note that this matches the *Staggered Grid* described in the GPU Gems guide 38.5.3, reducing numerical oscillations and increasing the accuracy of many calculations.
 
 # Main Loop
 We're trying to build a bridge between OpenGL and CUDA using the following objects.

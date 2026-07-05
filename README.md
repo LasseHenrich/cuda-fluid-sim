@@ -27,12 +27,13 @@ cd vcpkg
 .\vcpkg install glfw3 glew
 ```
 
-Create a build dir, configure, build, and run the code:
+Create a build dir, configure, build, and run the code in PowerShell:
 ```bash
 mkdir build
 cd build
 cmake ..
 cmake --build . --config Release
+.\Release\cuda_fluid_sim.exe
 ```
 You might need to add `-DCMAKE_TOOLCHAIN_FILE="C:/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake"` to the configure command
 
