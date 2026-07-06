@@ -7,7 +7,7 @@ Mostly from [this **GPU Gems** guide](https://developer.nvidia.com/gpugems/gpuge
 Most important is the velocity of a fluid for simulating it, so we represent the velocity in a vector field, i.e. a 2(or 3)-dimensional grid &rarr; for every position $\vec x=(x,y)$, there is an associated velocity at time $t$ &rarr; $\vec u(\vec x,t)=(u(\vec x,t),v(\vec x,t),w(\vec x,t))$. In every time step we update the grid with the correct velocity values by solving the Navier-Stokes equations.
 
 ## Navier-Stokes equations
-The fluid is represented by its velocity field $\vec u(\vec x,t)$ and a scalar pressure field $p(\vec x,t)$, which vary in space and time &rarr; If we know velocity and pressure for $t=0$, the fluid's state over time can be described by the Navier-Stokes equations. We can break them up into the following four terms:
+The fluid is represented by its velocity field $\vec u(\vec x,t)$ and a scalar pressure field $p(\vec x,t)$, which vary in space and time &rarr; If we know velocity and pressure for $t=0$ and assume incompressibility and homogeneity, the fluid's state over time can be described by the Navier-Stokes equations for incompressible flow. We can break them up into the following four terms:
 
 1. **Advection**
 Transfer of a property from one place to another due to the motion of the fluid. I.e., if you put dye into moving water, the dye will be pulled (*advected*) through it. Note that the velocity of a fluid carries *itself* along as well, which is called *self-advection*
@@ -20,7 +20,11 @@ Viscosity is a measure of how *thick* and therefore *resistive* to flow a fluid 
 Possibly various external forces like a fan blowing air.<br>
 &rarr; We can also ignore this for now.
 
+Note that *incompressible* just means that the volume of any subregion of the fluid is constant over time. It is *homogeneous* if its density is constant in space. Both assumptions together mean that density is constant in time and space.
+
 ### Solving the Navier-Stockes equations
+A quick note on divergence: It is the rate at which *density* exits a given region of space. Here, it measures the net change of velocity across a surface. To enforce the incompressibility assumption, the fluid always has to have zero divergence, hence we need a divergence-*free* vector field.
+
 The NV equations are three equations that we can solve for the quantities $u,v,p$. We can transform them using the *Helmholtz-Hodge Decomposition Theorem*, which states that any vector field can be decomposed into the sum of (i) a divergence-free vector field, and (ii) the gradient of a scalar field. Ref. the GPU Gems guide for more details, but we basically end up with
 $$
 \frac{\partial \vec u}{\partial t} = \mathbb P(-(\vec u\cdot\nabla)\vec u+\nu\nabla^2\vec u+ F),
@@ -55,6 +59,7 @@ $$
 where $\textbf I$ is the identity matrix.
 
 ### Pressure
+We use Jacobi iteration to solve the Poisson-pressure equation, i.e.:
 $$
 x_{i,j}^{(k+1)}=\frac{x_{i-1,j}^{(k)}+x_{i+1,j}^{(k)}+x_{i,j-1}^{(k)}+x_{i,j+1}^{(k)}+\alpha b_{i,j}}{\beta},
 $$
@@ -85,7 +90,7 @@ As described in the theory section and shown by the equation, instead of pushing
 Note that since the *source* position mostly lands between cell centers, we bilinearly interpolate the 4 surrounding cells. Also, note that this numerical error causes some diffusion, which is wanted and not a bug (ref. GPU Gems 38.4.1; they don't actually implement separate diffusion).
 
 ### Projection
-The projection step is divided into two operations, solving the Poisson-pressure equation, then subtracting the gradient of the pressure from the velocity field. We therefore need kernels for the Jacobi iteration program, for computing the divergence of the velocity field, and for subtracting the pressure gradient from the velocity field.
+The projection step is divided into two operations, solving the Poisson-pressure equation, then subtracting the gradient of the pressure from the velocity field. We therefore need kernels for computing the divergence of the velocity field, the Jacobi iteration program, and for subtracting the pressure gradient from the velocity field.
 
 ## Main Loop Details
 The main loop functions like a *game loop*, i.e. polls click events, renders, then prepares the next frame.
