@@ -59,11 +59,10 @@ $$
 where $\textbf I$ is the identity matrix.
 
 ### Pressure
-We use Jacobi iteration to solve the Poisson-pressure equation, i.e.:
+We need to find the pressure $p$ such that its Laplacian is the divergence: $\nabla^2p = \text{div}$, and we also know that $\nabla^2p$ at a cell must be equal to the sum of the four neighboring cells' pressures minus 4 times the original cells pressure. We can use the Jacobi iteration to solve this by repeatedly making each cell locally consistent:
 $$
-x_{i,j}^{(k+1)}=\frac{x_{i-1,j}^{(k)}+x_{i+1,j}^{(k)}+x_{i,j-1}^{(k)}+x_{i,j+1}^{(k)}+\alpha b_{i,j}}{\beta},
+x_{i,j}^{(k+1)}=\frac{x_{i-1,j}^{(k)}+x_{i+1,j}^{(k)}+x_{i,j-1}^{(k)}+x_{i,j+1}^{(k)}+\text{div}}{4}.
 $$
-where $\alpha,\beta$ are constants.
 
 ## Boundary Conditions
 We need to determine how to compute values at the edges of the simulation domain: For now, we assume that the fluid is in a box and cannot flow through its sides &rarr; velocity goes to zero at the boundaries (*no-slip* condition), and the rate of change of pressure in the direction normal to the boundary is zero as well.
@@ -90,7 +89,14 @@ As described in the theory section and shown by the equation, instead of pushing
 Note that since the *source* position mostly lands between cell centers, we bilinearly interpolate the 4 surrounding cells. Also, note that this numerical error causes some diffusion, which is wanted and not a bug (ref. GPU Gems 38.4.1; they don't actually implement separate diffusion).
 
 ### Projection
-The projection step is divided into two operations, solving the Poisson-pressure equation, then subtracting the gradient of the pressure from the velocity field. We therefore need kernels for computing the divergence of the velocity field, the Jacobi iteration program, and for subtracting the pressure gradient from the velocity field.
+The projection step is divided into two operations, solving the Poisson-pressure equation, then subtracting the gradient of the pressure from the velocity field. We therefore need kernels for computing the divergence of the velocity field, the Jacobi iteration program, and for subtracting the pressure gradient from the velocity field:
+1. The divergence kernel computes $\text{div} = \frac{\partial u}{\partial x} + \frac{\partial v}{\partial y}$ with finite differences:
+`div(x,y) = 0.5 * (vel[x+1].x − vel[x−1].x) + 0.5 * (vel[y+1].y − vel[y−1].y)`<br>
+1. As described in the theory part, the pressure equation is solved with the Jacobi iteration. Applying it 40-80 times yields a good result, acc. to GPU Gems.
+1. Then, a gradient subtraction kernel subtracts the pressure's gradient from the velocity. The gradient is again computed using finite differences.
+1. Lastly, we have a tiny kernel which enforces the no-slip boundary condition described earlier, setting the velocity to zero on the boundary.
+
+(ref. GPU Gems guide table 38-1 for finite difference formulas and 38.3.3 §Projection for more explanations)
 
 ## Main Loop Details
 The main loop functions like a *game loop*, i.e. polls click events, renders, then prepares the next frame.

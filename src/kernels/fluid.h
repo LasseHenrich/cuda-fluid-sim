@@ -6,9 +6,11 @@
 /// Indexing row-major (idx = y * width + x).
 /// Pairs of two for ping-ponging.
 struct FluidFields {
-    float2* velocity[2];  // DEVICE
-    float* dye[2];  // DEVICE. concentration of dye carried by the fluid at a point, used to calculate rendered color
-    float* pressure[2];  // DEVICE
+    float2* velocity[2];  // DEVICE. Velocity of the fluid at a point
+    float* dye[2];  // DEVICE. Concentration of dye carried by the fluid at a point, used to calculate rendered color
+    float* pressure[2];  // DEVICE. Pressure of the fluid. Ping-ponging since the last frame's pressure is a very good
+                         // initial guess for the current frame
+    float* divergence;   // DEVICE. Net change of velocity. Computed anew each frame, no ping-pong needed.
     int width, height;   // HOST
 };
 

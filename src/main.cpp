@@ -7,6 +7,7 @@
 #include "kernels/advection.h"
 #include "kernels/fluid.h"
 #include "kernels/plasmaKernel.h"
+#include "kernels/projection.h"
 
 const int WINDOW_WIDTH = 800;
 const int WINDOW_HEIGHT = 600;
@@ -95,7 +96,7 @@ int main() {
     registerTexture(glTexture, &glTextureCudaHandle);
 
     FluidFields fields = allocateFields(GRID_WIDTH, GRID_HEIGHT);
-    // initVortex(fields);
+    initVortex(fields);
 
     float time_prev = (float)glfwGetTime();
 
@@ -108,6 +109,7 @@ int main() {
 
         processInput(window, fields);
         advectVelocity(fields, deltaTime);
+        project(fields);
         advectDye(fields, deltaTime);
 
         cudaSurfaceObject_t surface = mapTextureSurface(glTextureCudaHandle);

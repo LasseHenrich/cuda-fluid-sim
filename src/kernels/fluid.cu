@@ -23,6 +23,9 @@ FluidFields allocateFields(int width, int height) {
         CHECK_CUDA(cudaMemset(fields.dye[i], 0, memSizeScalar_float1));
         CHECK_CUDA(cudaMemset(fields.pressure[i], 0, memSizeScalar_float1));
     }
+    
+    CHECK_CUDA(cudaMalloc(&fields.divergence, memSizeScalar_float1));
+    CHECK_CUDA(cudaMemset(fields.divergence, 0, memSizeScalar_float1));
 
     return fields;
 }
