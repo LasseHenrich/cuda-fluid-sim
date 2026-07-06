@@ -3,8 +3,9 @@
 
 #include <iostream>
 
-#include "fluid.h"
 #include "interop.h"
+#include "kernels/advection.h"
+#include "kernels/fluid.h"
 #include "kernels/plasmaKernel.h"
 
 const int WINDOW_WIDTH = 800;
@@ -14,7 +15,6 @@ const int GRID_WIDTH = 512;
 const int GRID_HEIGHT = 512;
 
 void processInput(GLFWwindow* window, FluidFields& fields) {
-
     // The last reported state for every key is saved in per-window state arrays and can be polled with glfwGetKey
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, true);
@@ -27,8 +27,9 @@ void processInput(GLFWwindow* window, FluidFields& fields) {
 
         // convert from screen to grid space for calculation
         int gridX = int((screenX / WINDOW_WIDTH) * GRID_WIDTH);
-        int gridY = int((1.0 - screenY / WINDOW_HEIGHT) * GRID_HEIGHT); // flip, since screen space starts in top-left corner
-        
+        int gridY =
+            int((1.0 - screenY / WINDOW_HEIGHT) * GRID_HEIGHT);  // flip, since screen space starts in top-left corner
+
         injectDyeAtPoint(fields, gridX, gridY);
 
         // ToDo: Store prevX/prevY across frames to update the velocity field later
@@ -79,11 +80,19 @@ int main() {
     registerTexture(glTexture, &glTextureCudaHandle);
 
     FluidFields fields = allocateFields(GRID_WIDTH, GRID_HEIGHT);
+    initVortex(fields);
+
+    float lastTime = (float)glfwGetTime();
 
     while (!glfwWindowShouldClose(window)) {
-        processInput(window, fields);
-
         float time = (float)glfwGetTime();
+        float deltaTime =
+            fminf(time - lastTime,
+                  0.05f);  // clamp at at least 20 FPS to prevent accuracy jumps, e.g. after moving the window
+        lastTime = time;
+
+        processInput(window, fields);
+        advectDye(fields, deltaTime);
 
         cudaSurfaceObject_t surface = mapTextureSurface(glTextureCudaHandle);
         // runPlasmaKernel(surface, GRID_WIDTH, GRID_HEIGHT, time);

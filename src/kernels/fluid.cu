@@ -35,6 +35,25 @@ void freeFields(FluidFields& fields) {
     }
 }
 
+__global__ void initVortexKernel(float2* velocity, int width, int height) {
+    int x = blockDim.x * blockIdx.x + threadIdx.x;
+    int y = blockDim.y * blockIdx.y + threadIdx.y;
+    if (x >= width || y >= height) return;
+
+    float dx = x - width / 2.0f;
+    float dy = y - height / 2.0f;
+    const float omega = 1.0f;
+    velocity[y * width + x] = make_float2(-omega * dy, omega * dx);
+}
+
+void initVortex(FluidFields& fields) {
+    dim3 threadsPerBlock(16, 16);
+    dim3 blocksPerGrid((fields.width + 15) / 16, (fields.height + 15) / 16);
+    initVortexKernel<<<blocksPerGrid, threadsPerBlock>>>(fields.velocity[0], fields.width, fields.height);
+    CHECK_CUDA(cudaGetLastError());
+}
+
+
 __global__ void injectDyeAtPointKernel(float* dye, int width, int height, int centerX, int centerY) {
     // Todo: We should launch just 2rx2r threads, not for the whole grid
     int threadX = blockDim.x * blockIdx.x + threadIdx.x;
@@ -45,9 +64,17 @@ __global__ void injectDyeAtPointKernel(float* dye, int width, int height, int ce
     float dy = threadY - centerY;
     float r = STROKE_RADIUS;
     if (dx * dx + dy * dy < r * r) {
-        dye[threadY * width + threadX] += 0.02f * exp(-(dx * dx + dy * dy) / (r * r)); // Gaussian splat
+        dye[threadY * width + threadX] += 0.02f * expf(-(dx * dx + dy * dy) / (r * r)); // Gaussian splat
     }
 }
+
+void injectDyeAtPoint(FluidFields& fields, int x, int y) {
+    dim3 threadsPerBlock(16, 16);
+    dim3 blocksPerGrid((fields.width + 15) / 16, (fields.height + 15) / 16);
+    injectDyeAtPointKernel<<<blocksPerGrid, threadsPerBlock>>>(fields.dye[0], fields.width, fields.height, x, y);
+    CHECK_CUDA(cudaGetLastError());
+}
+
 
 __global__ void dyeToColorKernel(const float* dye, cudaSurfaceObject_t surface, int width, int height) {
     int x = blockDim.x * blockIdx.x + threadIdx.x;
@@ -57,13 +84,6 @@ __global__ void dyeToColorKernel(const float* dye, cudaSurfaceObject_t surface, 
     float d = fminf(dye[y * width + x], 1.0f);  // clamp since dye can exceed 1
     unsigned char c = (unsigned char)(d * 255.0f);
     surf2Dwrite(make_uchar4(c, c, c, 255), surface, x * sizeof(uchar4), y);
-}
-
-void injectDyeAtPoint(FluidFields& fields, int x, int y) {
-    dim3 threadsPerBlock(16, 16);
-    dim3 blocksPerGrid((fields.width + 15) / 16, (fields.height + 15) / 16);
-    injectDyeAtPointKernel<<<blocksPerGrid, threadsPerBlock>>>(fields.dye[0], fields.width, fields.height, x, y);
-    CHECK_CUDA(cudaGetLastError());
 }
 
 void renderDye(FluidFields& fields, cudaSurfaceObject_t surface) {

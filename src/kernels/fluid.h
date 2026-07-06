@@ -18,6 +18,10 @@ FluidFields allocateFields(int width, int height);
 /// @brief Free the FluidFields object
 void freeFields(FluidFields& fields);
 
+/// @brief Initialize the velocity field with a simple vortex around the origin
+void initVortex(FluidFields& fields);
+
+/// @brief Inject some dye at the passed position in grid space
 void injectDyeAtPoint(FluidFields& fields, int x, int y);
 
 /// @brief Call a kernel to convert dye to color and write it to the surface texture

@@ -1,5 +1,7 @@
-# Simulation theory
+# Resources
 Mostly from [this **GPU Gems** guide](https://developer.nvidia.com/gpugems/gpugems/part-vi-beyond-triangles/chapter-38-fast-fluid-dynamics-simulation-gpu) and [this visualization](https://jamie-wong.com/2016/08/05/webgl-fluid-simulation/).
+
+# Simulation theory
 
 ## Representation
 Most important is the velocity of a fluid for simulating it, so we represent the velocity in a vector field, i.e. a 2(or 3)-dimensional grid &rarr; for every position $\vec x=(x,y)$, there is an associated velocity at time $t$ &rarr; $\vec u(\vec x,t)=(u(\vec x,t),v(\vec x,t),w(\vec x,t))$. In every time step we update the grid with the correct velocity values by solving the Navier-Stokes equations.
@@ -40,6 +42,7 @@ u = subtractPressureGradient(u,p)
 ```
 
 ### Advection
+(Ref. GPU Gems 38.3.3)
 Rather than advecting quantities by computing where a particle moves over the current time step, we trace the trajectory of the particle from each grid cell back in time to its former position and copy the quantities at that position to the starting grid cell. To update a quantity $q$, which could be velocity, density, temperature etc., we use
 $$
     q(\vec x, t+\Delta t)=q(\vec x-\vec u(x,t)\Delta t, t).
@@ -73,7 +76,16 @@ Standard would be using a **collocated** grid, where velocity components and pre
 A stencil can't safely read and write to the same field, since this could lead to race conditions. So, we use double buffering with a pointer swap, i.e. reading from buffer A, writing to buffer B, swapping the pointers for the next pass. &rarr; We have two buffers for velocity, pressure and dye. Convention is index 0 = current state for reading, index 1 = next state for writing.
 (In WebGL this is called [render to texture](https://webglfundamentals.org/webgl/lessons/webgl-image-processing-continued.html))
 
+## Kernels
+
+### Advection
+(Ref. GPU Gems 38.3.3)
+As described in the theory section and shown by the equation, instead of pushing dye forward out of each cell, each cell checks where its fluid came from and pulls the dye from there. This means that every thread *writes exactly one cell* and *only reads others* &rarr; this is perfect for a GPU implementation. In contrast, in a  *forward* setting, multiple threads may target the same cell, which would result in race conditions be need to be solved via atomics.
+
+Note that since the *source* position mostly lands between cell centers, we bilinearly interpolate the 4 surrounding cells. Also, note that this numerical error causes some diffusion, which is wanted and not a bug (ref. GPU Gems 38.4.1; they don't actually implement separate diffusion).
+
 ## Main Loop Details
+The main loop functions like a *game loop*, i.e. polls click events, renders, then prepares the next frame.
 
 ### Objects
 We're trying to build a bridge between OpenGL and CUDA using the following objects.
