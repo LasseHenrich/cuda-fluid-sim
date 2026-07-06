@@ -1,6 +1,7 @@
+#include <utility>
+
 #include "advection.h"
 #include "helper.h"
-#include <utility>
 
 __global__ void advectDyeKernel(const float2* velocity, const float* dyeIn, float* dyeOut, int width, int height,
                                 float deltaTime) {
@@ -27,10 +28,12 @@ __global__ void advectDyeKernel(const float2* velocity, const float* dyeIn, floa
     float dye01 = dyeIn[y1 * width + x0];
     float dye11 = dyeIn[y1 * width + x1];
 
-    float dyeBottom = (1 - (sourceX - x0)) * dye00 + (sourceX - x0) * dye10;
-    float dyeTop = (1 - (sourceX - x0)) * dye01 + (sourceX - x0) * dye11;
+    float fracX = sourceX - x0, fracY = sourceY - y0;
 
-    float dye = (1 - (sourceY - y0)) * dyeBottom + (sourceY - y0) * dyeTop;
+    float dyeBottom = (1 - fracX) * dye00 + fracX * dye10;
+    float dyeTop = (1 - fracX) * dye01 + fracX * dye11;
+
+    float dye = (1 - fracY) * dyeBottom + fracY * dyeTop;
 
     dyeOut[y * width + x] = dye;
 }
@@ -42,4 +45,49 @@ void advectDye(FluidFields& fields, float deltaTime) {
                                                         fields.height, deltaTime);
     CHECK_CUDA(cudaGetLastError());
     std::swap(fields.dye[0], fields.dye[1]);
+}
+
+__global__ void advectVelocityKernel(const float2* velIn, float2* velOut, int width, int height, float deltaTime) {
+    // Todo: Cleanup, moving shared code with advectDyeKernel to a separate helper
+
+    int x = blockDim.x * blockIdx.x + threadIdx.x;
+    int y = blockDim.y * blockIdx.y + threadIdx.y;
+    if (x >= width || y >= height) return;
+
+    // backtrace to where fluid came from
+    float2 myVelIn = velIn[y * width + x];
+    float sourceX = x - deltaTime * myVelIn.x;
+    float sourceY = y - deltaTime * myVelIn.y;
+
+    // clamping to grid bounds [0, GRID_WIDTH-1)
+    sourceX = fminf(fmaxf(sourceX, 0.0f), width - 1.0001f);
+    sourceY = fminf(fmaxf(sourceY, 0.0f), height - 1.0001f);
+
+    // bilinear interpolation between four surrounding cells, (0,0) (left,bottom) to (1,1) (right,top)
+
+    int x0 = (int)sourceX, y0 = (int)sourceY;
+    int x1 = x0 + 1, y1 = y0 + 1;
+
+    float2 vel00 = velIn[y0 * width + x0];
+    float2 vel10 = velIn[y0 * width + x1];
+    float2 vel01 = velIn[y1 * width + x0];
+    float2 vel11 = velIn[y1 * width + x1];
+
+    float fracX = sourceX - x0, fracY = sourceY - y0;
+
+    float2 velBottom = make_float2((1 - fracX) * vel00.x + fracX * vel10.x, (1 - fracX) * vel00.y + fracX * vel10.y);
+    float2 velTop = make_float2((1 - fracX) * vel01.x + fracX * vel11.x, (1 - fracX) * vel01.y + fracX * vel11.y);
+
+    float2 vel =
+        make_float2((1 - fracY) * velBottom.x + fracY * velTop.x, (1 - fracY) * velBottom.y + fracY * velTop.y);
+
+    velOut[y * width + x] = vel;
+}
+
+void advectVelocity(FluidFields& fields, float deltaTime) {
+    dim3 threadsPerBlock(16, 16);
+    dim3 blocksPerGrid((fields.width + 15) / 16, (fields.height + 15) / 16);
+    advectVelocityKernel<<<blocksPerGrid, threadsPerBlock>>>(fields.velocity[0], fields.velocity[1], fields.width, fields.height, deltaTime);
+    CHECK_CUDA(cudaGetLastError());
+    std::swap(fields.velocity[0], fields.velocity[1]);
 }

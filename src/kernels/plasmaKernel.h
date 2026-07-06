@@ -1,3 +1,5 @@
+/// This is purely for testing
+
 #pragma once
 #include <cuda_runtime.h>
 

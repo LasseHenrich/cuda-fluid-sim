@@ -14,12 +14,16 @@ const int WINDOW_HEIGHT = 600;
 const int GRID_WIDTH = 512;
 const int GRID_HEIGHT = 512;
 
+const int FORCE_SCALE = 1.0f;
+
 void processInput(GLFWwindow* window, FluidFields& fields) {
     // The last reported state for every key is saved in per-window state arrays and can be polled with glfwGetKey
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, true);
     }
 
+    static int prevGridX = 0, prevGridY = 0;
+    static bool wasPressed = false;
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
         // screen space, so in interval [0, WINDOW_WIDTH-1] and [0, WINDOW_HEIGHT-1] resp.
         double screenX, screenY;
@@ -32,7 +36,17 @@ void processInput(GLFWwindow* window, FluidFields& fields) {
 
         injectDyeAtPoint(fields, gridX, gridY);
 
-        // ToDo: Store prevX/prevY across frames to update the velocity field later
+        if (wasPressed) {
+            // Todo: Make force strength dependent on deltaTime
+            float2 force = make_float2((gridX - prevGridX) * FORCE_SCALE, (gridY - prevGridY) * FORCE_SCALE);
+            injectForceAtPoint(fields, gridX, gridY, force);
+        }
+
+        prevGridX = gridX;
+        prevGridY = gridY;
+        wasPressed = true;
+    } else {
+        wasPressed = false;
     }
 }
 
@@ -54,6 +68,7 @@ int main() {
     }
     glfwMakeContextCurrent(window);  // all rendering commands issued by this thread to be drawn
                                      // inside this window's canvas
+    glfwSwapInterval(1);             // vsync
 
     if (glewInit() != GLEW_OK) {
         std::cerr << "Failed to init GLEW" << std::endl;
@@ -80,18 +95,19 @@ int main() {
     registerTexture(glTexture, &glTextureCudaHandle);
 
     FluidFields fields = allocateFields(GRID_WIDTH, GRID_HEIGHT);
-    initVortex(fields);
+    // initVortex(fields);
 
-    float lastTime = (float)glfwGetTime();
+    float time_prev = (float)glfwGetTime();
 
     while (!glfwWindowShouldClose(window)) {
         float time = (float)glfwGetTime();
         float deltaTime =
-            fminf(time - lastTime,
+            fminf(time - time_prev,
                   0.05f);  // clamp at at least 20 FPS to prevent accuracy jumps, e.g. after moving the window
-        lastTime = time;
+        time_prev = time;
 
         processInput(window, fields);
+        advectVelocity(fields, deltaTime);
         advectDye(fields, deltaTime);
 
         cudaSurfaceObject_t surface = mapTextureSurface(glTextureCudaHandle);

@@ -21,8 +21,11 @@ void freeFields(FluidFields& fields);
 /// @brief Initialize the velocity field with a simple vortex around the origin
 void initVortex(FluidFields& fields);
 
-/// @brief Inject some dye at the passed position in grid space
+/// @brief Inject some dye at the passed position in grid space ~> changes dye field
 void injectDyeAtPoint(FluidFields& fields, int x, int y);
+
+/// @brief Inject force at the passed position in grid space with the passed forced ~> changes velocity field
+void injectForceAtPoint(FluidFields& fields, int x, int y, float2 force);
 
 /// @brief Call a kernel to convert dye to color and write it to the surface texture
 void renderDye(FluidFields& fields, cudaSurfaceObject_t surface);

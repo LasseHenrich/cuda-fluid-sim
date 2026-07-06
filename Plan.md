@@ -1,6 +1,0 @@
-# Implementation Plan
-1. **Field buffers + a field-to-color kernel.** Allocate device arrays: velocity (float2), dye/density (float), pressure and divergence (float) — each of velocity and dye needs two buffers (ping-pong), because a stencil kernel can't safely read and write the same field. Replace the plasma kernel with a kernel that maps the dye field to colors on the texture. This is all lecture-3-level CUDA (cudaMalloc, 2D indexing).
-2. **Mouse splat.** GLFW cursor callback → inject a Gaussian blob of dye (and later force) at the cursor. First interactivity, and it gives you something to advect.
-3. **Advection kernel** (semi-Lagrangian backtrace + bilinear interpolation, your Docs.md §Advection). Test it with a hard-coded analytic velocity field (e.g. a single vortex) before velocity depends on itself — dye swirling in a fixed vortex immediately shows whether interpolation and indexing are right.
-4. **Velocity self-advection + mouse force injection**. Now the velocity field advects itself and you push it around with the mouse.
-5. **Projection:** divergence kernel → ~40–80 Jacobi iterations for pressure (your Docs.md §Pressure) → subtract pressure gradient. Plus the boundary conditions. This is the step that makes it behave like an incompressible fluid instead of smearing dye off-screen.

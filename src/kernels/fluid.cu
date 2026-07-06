@@ -53,7 +53,6 @@ void initVortex(FluidFields& fields) {
     CHECK_CUDA(cudaGetLastError());
 }
 
-
 __global__ void injectDyeAtPointKernel(float* dye, int width, int height, int centerX, int centerY) {
     // Todo: We should launch just 2rx2r threads, not for the whole grid
     int threadX = blockDim.x * blockIdx.x + threadIdx.x;
@@ -64,17 +63,43 @@ __global__ void injectDyeAtPointKernel(float* dye, int width, int height, int ce
     float dy = threadY - centerY;
     float r = STROKE_RADIUS;
     if (dx * dx + dy * dy < r * r) {
-        dye[threadY * width + threadX] += 0.02f * expf(-(dx * dx + dy * dy) / (r * r)); // Gaussian splat
+        dye[threadY * width + threadX] += 0.02f * expf(-(dx * dx + dy * dy) / (r * r));  // Gaussian splat
     }
 }
 
 void injectDyeAtPoint(FluidFields& fields, int x, int y) {
     dim3 threadsPerBlock(16, 16);
     dim3 blocksPerGrid((fields.width + 15) / 16, (fields.height + 15) / 16);
-    injectDyeAtPointKernel<<<blocksPerGrid, threadsPerBlock>>>(fields.dye[0], fields.width, fields.height, x, y);
+    injectDyeAtPointKernel<<<blocksPerGrid, threadsPerBlock>>>(fields.dye[0], fields.width, fields.height, x,
+                                                               y);  // directly write to [0]... we need no reading
     CHECK_CUDA(cudaGetLastError());
 }
 
+__global__ void injectForceAtPointKernel(float2* velocity, int width, int height, int centerX, int centerY,
+                                         float2 force) {
+    // Todo: We should launch just 2rx2r threads, not for the whole grid
+    // Todo: Cleanup, moving shared code with injectDyeAtPointKernel to a separate helper
+    int threadX = blockDim.x * blockIdx.x + threadIdx.x;
+    int threadY = blockDim.y * blockIdx.y + threadIdx.y;
+    if (threadX >= width || threadY >= height) return;
+
+    float dx = threadX - centerX;
+    float dy = threadY - centerY;
+    float r = STROKE_RADIUS;
+    if (dx * dx + dy * dy < r * r) {
+        float multiplier = expf(-(dx * dx + dy * dy) / (r * r));  // Again gaussian falloff
+        velocity[threadY * width + threadX].x += force.x * multiplier;
+        velocity[threadY * width + threadX].y += force.y * multiplier;
+    }
+}
+
+void injectForceAtPoint(FluidFields& fields, int x, int y, float2 force) {
+    dim3 threadsPerBlock(16, 16);
+    dim3 blocksPerGrid((fields.width + 15) / 16, (fields.height + 15) / 16);
+    injectForceAtPointKernel<<<blocksPerGrid, threadsPerBlock>>>(fields.velocity[0], fields.width, fields.height, x, y,
+                                                                 force);
+    CHECK_CUDA(cudaGetLastError());
+}
 
 __global__ void dyeToColorKernel(const float* dye, cudaSurfaceObject_t surface, int width, int height) {
     int x = blockDim.x * blockIdx.x + threadIdx.x;

@@ -10,7 +10,7 @@ Most important is the velocity of a fluid for simulating it, so we represent the
 The fluid is represented by its velocity field $\vec u(\vec x,t)$ and a scalar pressure field $p(\vec x,t)$, which vary in space and time &rarr; If we know velocity and pressure for $t=0$, the fluid's state over time can be described by the Navier-Stokes equations. We can break them up into the following four terms:
 
 1. **Advection**
-Transfer of a property from one place to another due to the motion of the fluid. I.e., if you put dye into moving water, the dye will be pulled (*advected*) through it.
+Transfer of a property from one place to another due to the motion of the fluid. I.e., if you put dye into moving water, the dye will be pulled (*advected*) through it. Note that the velocity of a fluid carries *itself* along as well, which is called *self-advection*
 1. **Pressure**
 Builds up since particles move around and push each other. Any pressure naturally leads to acceleration.
 1. **Diffusion**
@@ -77,12 +77,15 @@ A stencil can't safely read and write to the same field, since this could lead t
 (In WebGL this is called [render to texture](https://webglfundamentals.org/webgl/lessons/webgl-image-processing-continued.html))
 
 ## Kernels
+(Ref. GPU Gems 38.3.3)
 
 ### Advection
-(Ref. GPU Gems 38.3.3)
 As described in the theory section and shown by the equation, instead of pushing dye forward out of each cell, each cell checks where its fluid came from and pulls the dye from there. This means that every thread *writes exactly one cell* and *only reads others* &rarr; this is perfect for a GPU implementation. In contrast, in a  *forward* setting, multiple threads may target the same cell, which would result in race conditions be need to be solved via atomics.
 
 Note that since the *source* position mostly lands between cell centers, we bilinearly interpolate the 4 surrounding cells. Also, note that this numerical error causes some diffusion, which is wanted and not a bug (ref. GPU Gems 38.4.1; they don't actually implement separate diffusion).
+
+### Projection
+The projection step is divided into two operations, solving the Poisson-pressure equation, then subtracting the gradient of the pressure from the velocity field. We therefore need kernels for the Jacobi iteration program, for computing the divergence of the velocity field, and for subtracting the pressure gradient from the velocity field.
 
 ## Main Loop Details
 The main loop functions like a *game loop*, i.e. polls click events, renders, then prepares the next frame.
