@@ -18,7 +18,7 @@ FluidFields allocateFields(int width, int height);
 /// @brief Free the FluidFields object
 void freeFields(FluidFields& fields);
 
-void seedDye(FluidFields& f);  // temporary: fill a test pattern until mouse splat exists
+void injectDyeAtPoint(FluidFields& fields, int x, int y);
 
 /// @brief Call a kernel to convert dye to color and write it to the surface texture
 void renderDye(FluidFields& fields, cudaSurfaceObject_t surface);

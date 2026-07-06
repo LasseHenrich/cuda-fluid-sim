@@ -1,6 +1,7 @@
 #include "fluid.h"
-
 #include "helper.h"
+
+const int STROKE_RADIUS = 32;
 
 FluidFields allocateFields(int width, int height) {
     // Note that in the lecture we always used cudaMemcpy to init the device vectors,
@@ -34,15 +35,18 @@ void freeFields(FluidFields& fields) {
     }
 }
 
-/// @brief temporary test pattern: a filled dye circle in the grid center
-__global__ void seedDyeKernel(float* dye, int width, int height) {
-    int x = blockDim.x * blockIdx.x + threadIdx.x;
-    int y = blockDim.y * blockIdx.y + threadIdx.y;
-    if (x >= width || y >= height) return;
+__global__ void injectDyeAtPointKernel(float* dye, int width, int height, int centerX, int centerY) {
+    // Todo: We should launch just 2rx2r threads, not for the whole grid
+    int threadX = blockDim.x * blockIdx.x + threadIdx.x;
+    int threadY = blockDim.y * blockIdx.y + threadIdx.y;
+    if (threadX >= width || threadY >= height) return;
 
-    float dx = x - width / 2.0f;
-    float dy = y - height / 2.0f;
-    dye[y * width + x] = (dx * dx + dy * dy < 60.0f * 60.0f) ? 1.0f : 0.0f;
+    float dx = threadX - centerX;
+    float dy = threadY - centerY;
+    float r = STROKE_RADIUS;
+    if (dx * dx + dy * dy < r * r) {
+        dye[threadY * width + threadX] += 0.02f * exp(-(dx * dx + dy * dy) / (r * r)); // Gaussian splat
+    }
 }
 
 __global__ void dyeToColorKernel(const float* dye, cudaSurfaceObject_t surface, int width, int height) {
@@ -55,16 +59,16 @@ __global__ void dyeToColorKernel(const float* dye, cudaSurfaceObject_t surface, 
     surf2Dwrite(make_uchar4(c, c, c, 255), surface, x * sizeof(uchar4), y);
 }
 
-void seedDye(FluidFields& f) {
-    dim3 blockSize(16, 16);
-    dim3 gridSize((f.width + 15) / 16, (f.height + 15) / 16);
-    seedDyeKernel<<<gridSize, blockSize>>>(f.dye[0], f.width, f.height);
+void injectDyeAtPoint(FluidFields& fields, int x, int y) {
+    dim3 threadsPerBlock(16, 16);
+    dim3 blocksPerGrid((fields.width + 15) / 16, (fields.height + 15) / 16);
+    injectDyeAtPointKernel<<<blocksPerGrid, threadsPerBlock>>>(fields.dye[0], fields.width, fields.height, x, y);
     CHECK_CUDA(cudaGetLastError());
 }
 
 void renderDye(FluidFields& fields, cudaSurfaceObject_t surface) {
     dim3 threadsPerBlock(16, 16);
     dim3 blocksPerGrid((fields.width + 15) / 16, (fields.height + 15) / 16);
-    dyeToColorKernel<<<threadsPerBlock, blocksPerGrid>>>(fields.dye[0], surface, fields.width, fields.height);
+    dyeToColorKernel<<<blocksPerGrid, threadsPerBlock>>>(fields.dye[0], surface, fields.width, fields.height);
     CHECK_CUDA(cudaGetLastError());
 }
