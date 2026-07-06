@@ -5,6 +5,7 @@
 
 #include "interop.h"
 #include "kernels/plasmaKernel.h"
+#include "fluid.h"
 
 const int WINDOW_WIDTH = 800;
 const int WINDOW_HEIGHT = 600;
@@ -61,12 +62,18 @@ int main() {
     cudaGraphicsResource* glTextureCudaHandle;  // "memory translation bridge" for CUDA to access OpenGL VRAM block
     registerTexture(glTexture, &glTextureCudaHandle);
 
+    FluidFields fields = allocateFields(GRID_WIDTH, GRID_HEIGHT);
+    seedDye(fields);
+
     while (!glfwWindowShouldClose(window)) {
         processInput(window);
 
         float time = (float)glfwGetTime();
 
-        runCudaKernel(glTextureCudaHandle, GRID_WIDTH, GRID_HEIGHT, time);
+        cudaSurfaceObject_t surface = mapTextureSurface(glTextureCudaHandle);
+        // runPlasmaKernel(surface, GRID_WIDTH, GRID_HEIGHT, time);
+        renderDye(fields, surface);
+        unmapTextureSurface(glTextureCudaHandle, surface);
 
         glBindFramebuffer(GL_READ_FRAMEBUFFER, blitFBO);  // prepare fbo for blitting / read operation
         glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, glTexture,
@@ -81,6 +88,7 @@ int main() {
     }
 
     // cleanup
+    freeFields(fields);
     unregisterTexture(glTextureCudaHandle);
     glDeleteTextures(1, &glTexture);
     glDeleteFramebuffers(1, &blitFBO);

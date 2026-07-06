@@ -13,6 +13,8 @@ add_executable(cuda_fluid_sim)
 target_sources(cuda_fluid_sim PRIVATE
     src/kernels/plasmaKernel.h
     src/kernels/plasmaKernel.cu
+    src/fluid.cu
+    src/fluid.h
     src/helper.h
     src/interop.h
     src/interop.cu

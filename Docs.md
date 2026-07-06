@@ -57,25 +57,34 @@ x_{i,j}^{(k+1)}=\frac{x_{i-1,j}^{(k)}+x_{i+1,j}^{(k)}+x_{i,j-1}^{(k)}+x_{i,j+1}^
 $$
 where $\alpha,\beta$ are constants.
 
-# Simulation implementation
+## Boundary Conditions
+We need to determine how to compute values at the edges of the simulation domain: For now, we assume that the fluid is in a box and cannot flow through its sides &rarr; velocity goes to zero at the boundaries (*no-slip* condition), and the rate of change of pressure in the direction normal to the boundary is zero as well.
 
-## Representation
+# Implementation
+
+## Grid Representation
 Standard would be using a **collocated** grid, where velocity components and pressure live at the exact same pixel centers. However, with this, spatial derivatives for cell $i$ will look at indices $i+1$ and $i-1$, skipping the cell itself, which may result in **checkerboard instability**.
 
 &rarr; Instead, we may need to use a **Marker and Cell** (MAC) grid layout, i.e. storing the pressure at the cell centers, but shifting horizontal velocity components to the vertical cell faces and vertical velocity components to the horizontal cell faces. Note that this matches the *Staggered Grid* described in the GPU Gems guide 38.5.3, reducing numerical oscillations and increasing the accuracy of many calculations.
 
-# Main Loop
+> First, I'll implement the collocated grid, possibly upgrading to MAC later
+
+## Double buffering (ping-pong)
+A stencil can't safely read and write to the same field, since this could lead to race conditions. So, we use double buffering with a pointer swap, i.e. reading from buffer A, writing to buffer B, swapping the pointers for the next pass. &rarr; We have two buffers for velocity, pressure and dye. Convention is index 0 = current state for reading, index 1 = next state for writing.
+(In WebGL this is called [render to texture](https://webglfundamentals.org/webgl/lessons/webgl-image-processing-continued.html))
+
+## Main Loop Details
+
+### Objects
 We're trying to build a bridge between OpenGL and CUDA using the following objects.
 
-## Objects
+#### `glTexture`
+512x512 (grid size) allocation of raw VRAM that hold pixel color data (i.e. 4 bytes per pixel) &rarr; basically the canvas.
 
-### `glTexture`
-800x600 (window size) allocation of raw VRAM that hold pixel color data (i.e. 4 bytes per pixel) &rarr; basically the canvas.
-
-### `glTextureCudaHandle`
+#### `glTextureCudaHandle`
 **registration bridge** that allows CUDA to temporarily lock `glTexture` and rewrite its pixels.
 
-### `blitFBO`
+#### `blitFBO`
 Helps with glitting, i.e. it wraps around the texture so the hardware can copy (*blit*) it directly to the monitor.
 
 

@@ -4,3 +4,6 @@
 
 void registerTexture(unsigned int glTexture, cudaGraphicsResource** glTextureCudaHandle);
 void unregisterTexture(cudaGraphicsResource* glTextureCudaHandle);
+
+cudaSurfaceObject_t mapTextureSurface(cudaGraphicsResource* handle);
+void unmapTextureSurface(cudaGraphicsResource* handle, cudaSurfaceObject_t surface);
