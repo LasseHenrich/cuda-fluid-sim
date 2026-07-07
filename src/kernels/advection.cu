@@ -3,91 +3,115 @@
 #include "advection.h"
 #include "helper.h"
 
-__global__ void advectDyeKernel(const float2* velocity, const float* dyeIn, float* dyeOut, int width, int height,
-                                float deltaTime) {
-    int x = blockDim.x * blockIdx.x + threadIdx.x;
-    int y = blockDim.y * blockIdx.y + threadIdx.y;
-    if (x >= width || y >= height) return;
-
-    // backtrace to where fluid came from
-    float2 myVel = velocity[y * width + x];
+/// @brief // backtrace to where a quantity (dye or velocity) came from
+__device__ float3 backTrace(const float4* velocity, int x, int y, int z, int width, int height, int depth,
+                            float deltaTime) {
+    float4 myVel = velocity[idx3d(x, y, z, width, height)];
     float sourceX = x - deltaTime * myVel.x;
     float sourceY = y - deltaTime * myVel.y;
+    float sourceZ = z - deltaTime * myVel.z;
 
     // clamping to grid bounds [0, GRID_WIDTH-1)
     sourceX = fminf(fmaxf(sourceX, 0.0f), width - 1.0001f);
     sourceY = fminf(fmaxf(sourceY, 0.0f), height - 1.0001f);
+    sourceZ = fminf(fmaxf(sourceZ, 0.0f), depth - 1.0001f);
 
-    // bilinear interpolation between four surrounding cells, (0,0) (left,bottom) to (1,1) (right,top)
+    return make_float3(sourceX, sourceY, sourceZ);
+}
 
-    int x0 = (int)sourceX, y0 = (int)sourceY;
-    int x1 = x0 + 1, y1 = y0 + 1;
+__device__ __host__ inline float4 operator*(float mult, float4 a) {
+    return make_float4(mult * a.x, mult * a.y, mult * a.z, 0); // we don't use the fourth dimension right now, so spare the extra computation...
+}
 
-    float dye00 = dyeIn[y0 * width + x0];
-    float dye10 = dyeIn[y0 * width + x1];
-    float dye01 = dyeIn[y1 * width + x0];
-    float dye11 = dyeIn[y1 * width + x1];
+__device__ __host__ inline float4 operator+(float4 a, float4 b) {
+    return make_float4(a.x + b.x, a.y + b.y, a.z + b.z, 0);
+}
 
-    float fracX = sourceX - x0, fracY = sourceY - y0;
+__device__ __host__ inline float4 operator-(float4 a, float4 b) {
+    return make_float4(a.x - b.x, a.y - b.y, a.z - b.z, 0);
+}
 
-    float dyeBottom = (1 - fracX) * dye00 + fracX * dye10;
-    float dyeTop = (1 - fracX) * dye01 + fracX * dye11;
+/// @brief // trilinear interpolation between eight surrounding cells, (0,0,0) (left,bottom,front) to (1,1,1)
+/// (right,top,back), to determine value of a quantity
+template <typename T>
+__device__ T trilinearlyInterpolate(const T* field, float x, float y, float z, int width, int height) {
+    int x0 = (int)x, y0 = (int)y, z0 = (int)z;
+    int x1 = x0 + 1, y1 = y0 + 1, z1 = z0 + 1;
 
-    float dye = (1 - fracY) * dyeBottom + fracY * dyeTop;
+    // 1. sample 8 corners
+    T val000 = field[idx3d(x0, y0, z0, width, height)];
+    T val100 = field[idx3d(x1, y0, z0, width, height)];
+    T val010 = field[idx3d(x0, y1, z0, width, height)];
+    T val110 = field[idx3d(x1, y1, z0, width, height)];
+    T val001 = field[idx3d(x0, y0, z1, width, height)];
+    T val101 = field[idx3d(x1, y0, z1, width, height)];
+    T val011 = field[idx3d(x0, y1, z1, width, height)];
+    T val111 = field[idx3d(x1, y1, z1, width, height)];
 
-    dyeOut[y * width + x] = dye;
+    float fracX = x - x0, fracY = y - y0, fracZ = z - z0;
+
+    // 2. 4 lerps along x axis
+    T valFrontBottom = (1 - fracX) * val000 + fracX * val100;
+    T valFrontTop = (1 - fracX) * val010 + fracX * val110;
+    T valBackBottom = (1 - fracX) * val001 + fracX * val101;
+    T valBackTop = (1 - fracX) * val011 + fracX * val111;
+
+    // 3. 2 lerps along y axis
+    T valFront = (1 - fracY) * valFrontBottom + fracY * valFrontTop;
+    T valBack = (1 - fracY) * valBackBottom + fracY * valBackTop;
+
+    // 4. 1 lerp along z axis
+    T val = (1 - fracZ) * valFront + fracZ * valBack;
+
+    return val;
+}
+
+__global__ void advectDyeKernel(const float4* velocity, const float* dyeIn, float* dyeOut, int width, int height,
+                                int depth, float deltaTime) {
+    int x = blockDim.x * blockIdx.x + threadIdx.x;
+    int y = blockDim.y * blockIdx.y + threadIdx.y;
+    int z = blockDim.z * blockIdx.z + threadIdx.z;
+    if (x >= width || y >= height || z >= depth) return;
+
+    float3 source = backTrace(velocity, x, y, z, width, height, depth, deltaTime);
+    float sourceX = source.x;
+    float sourceY = source.y;
+    float sourceZ = source.z;
+    
+    float dye = trilinearlyInterpolate(dyeIn, sourceX, sourceY, sourceZ, width, height);
+    
+    dyeOut[idx3d(x, y, z, width, height)] = dye;
 }
 
 void advectDye(FluidFields& fields, float deltaTime) {
-    dim3 threadsPerBlock(16, 16);
-    dim3 blocksPerGrid((fields.width + 15) / 16, (fields.height + 15) / 16);
-    advectDyeKernel<<<blocksPerGrid, threadsPerBlock>>>(fields.velocity[0], fields.dye[0], fields.dye[1], fields.width,
-                                                        fields.height, deltaTime);
+    advectDyeKernel<<<getBlocksPerGrid(fields.width, fields.height, fields.depth), getThreadsPerBlock()>>>(
+        fields.velocity[0], fields.dye[0], fields.dye[1], fields.width, fields.height, fields.depth, deltaTime);
     CHECK_CUDA(cudaGetLastError());
     std::swap(fields.dye[0], fields.dye[1]);
 }
 
-__global__ void advectVelocityKernel(const float2* velIn, float2* velOut, int width, int height, float deltaTime) {
+__global__ void advectVelocityKernel(const float4* velIn, float4* velOut, int width, int height, int depth,
+                                     float deltaTime) {
     // Todo: Cleanup, moving shared code with advectDyeKernel to a separate helper
 
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = blockDim.y * blockIdx.y + threadIdx.y;
-    if (x >= width || y >= height) return;
+    int z = blockDim.z * blockIdx.z + threadIdx.z;
+    if (x >= width || y >= height || z >= depth) return;
 
-    // backtrace to where fluid came from
-    float2 myVelIn = velIn[y * width + x];
-    float sourceX = x - deltaTime * myVelIn.x;
-    float sourceY = y - deltaTime * myVelIn.y;
+    float3 source = backTrace(velIn, x, y, z, width, height, depth, deltaTime);
+    float sourceX = source.x;
+    float sourceY = source.y;
+    float sourceZ = source.z;
 
-    // clamping to grid bounds [0, GRID_WIDTH-1)
-    sourceX = fminf(fmaxf(sourceX, 0.0f), width - 1.0001f);
-    sourceY = fminf(fmaxf(sourceY, 0.0f), height - 1.0001f);
+    float4 vel = trilinearlyInterpolate(velIn, sourceX, sourceY, sourceZ, width, height);
 
-    // bilinear interpolation between four surrounding cells, (0,0) (left,bottom) to (1,1) (right,top)
-
-    int x0 = (int)sourceX, y0 = (int)sourceY;
-    int x1 = x0 + 1, y1 = y0 + 1;
-
-    float2 vel00 = velIn[y0 * width + x0];
-    float2 vel10 = velIn[y0 * width + x1];
-    float2 vel01 = velIn[y1 * width + x0];
-    float2 vel11 = velIn[y1 * width + x1];
-
-    float fracX = sourceX - x0, fracY = sourceY - y0;
-
-    float2 velBottom = make_float2((1 - fracX) * vel00.x + fracX * vel10.x, (1 - fracX) * vel00.y + fracX * vel10.y);
-    float2 velTop = make_float2((1 - fracX) * vel01.x + fracX * vel11.x, (1 - fracX) * vel01.y + fracX * vel11.y);
-
-    float2 vel =
-        make_float2((1 - fracY) * velBottom.x + fracY * velTop.x, (1 - fracY) * velBottom.y + fracY * velTop.y);
-
-    velOut[y * width + x] = vel;
+    velOut[idx3d(x, y, z, width, height)] = vel;
 }
 
 void advectVelocity(FluidFields& fields, float deltaTime) {
-    dim3 threadsPerBlock(16, 16);
-    dim3 blocksPerGrid((fields.width + 15) / 16, (fields.height + 15) / 16);
-    advectVelocityKernel<<<blocksPerGrid, threadsPerBlock>>>(fields.velocity[0], fields.velocity[1], fields.width, fields.height, deltaTime);
+    advectVelocityKernel<<<getBlocksPerGrid(fields.width, fields.height, fields.depth), getThreadsPerBlock()>>>(
+        fields.velocity[0], fields.velocity[1], fields.width, fields.height, fields.depth, deltaTime);
     CHECK_CUDA(cudaGetLastError());
     std::swap(fields.velocity[0], fields.velocity[1]);
 }

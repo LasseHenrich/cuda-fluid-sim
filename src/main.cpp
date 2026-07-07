@@ -6,17 +6,19 @@
 #include "interop.h"
 #include "kernels/advection.h"
 #include "kernels/fluid.h"
-#include "kernels/plasmaKernel.h"
 #include "kernels/projection.h"
 #include "timing.h"
 
 const int WINDOW_WIDTH = 800;
 const int WINDOW_HEIGHT = 600;
 
-const int GRID_WIDTH = 512;
-const int GRID_HEIGHT = 512;
+const int GRID_WIDTH = 128;
+const int GRID_HEIGHT = 128;
+const int GRID_DEPTH = 128;
 
 const float FORCE_SCALE = 1.0f;
+
+const int GRID_Z = GRID_DEPTH / 2;
 
 void processInput(GLFWwindow* window, FluidFields& fields) {
     // The last reported state for every key is saved in per-window state arrays and can be polled with glfwGetKey
@@ -36,12 +38,12 @@ void processInput(GLFWwindow* window, FluidFields& fields) {
         int gridY =
             int((1.0 - screenY / WINDOW_HEIGHT) * GRID_HEIGHT);  // flip, since screen space starts in top-left corner
 
-        injectDyeAtPoint(fields, gridX, gridY);
+        injectDyeAtPoint(fields, gridX, gridY, GRID_Z);
 
         if (wasPressed) {
             // Todo: Make force strength dependent on deltaTime
-            float2 force = make_float2((gridX - prevGridX) * FORCE_SCALE, (gridY - prevGridY) * FORCE_SCALE);
-            injectForceAtPoint(fields, gridX, gridY, force);
+            float3 force = make_float3((gridX - prevGridX) * FORCE_SCALE, (gridY - prevGridY) * FORCE_SCALE, 0);
+            injectForceAtPoint(fields, gridX, gridY, GRID_Z, force);
         }
 
         prevGridX = gridX;
@@ -96,7 +98,7 @@ int main() {
     cudaGraphicsResource* glTextureCudaHandle;  // "memory translation bridge" for CUDA to access OpenGL VRAM block
     registerTexture(glTexture, &glTextureCudaHandle);
 
-    FluidFields fields = allocateFields(GRID_WIDTH, GRID_HEIGHT);
+    FluidFields fields = allocateFields(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH);
     initVortex(fields);
 
     float time_prev = (float)glfwGetTime();
@@ -126,7 +128,6 @@ int main() {
 
         cudaSurfaceObject_t surface = mapTextureSurface(glTextureCudaHandle);
         renderingTimer.startTimer();
-        // runPlasmaKernel(surface, GRID_WIDTH, GRID_HEIGHT, time);
         renderDye(fields, surface);
         renderingTimer.endTimer();
         unmapTextureSurface(glTextureCudaHandle, surface);

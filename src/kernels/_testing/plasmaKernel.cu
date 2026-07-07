@@ -7,11 +7,12 @@
 #include "kernels/plasmaKernel.h"
 
 /// @brief Test plasma kernel, purely for debugging
-__global__ void generatePlasma(cudaSurfaceObject_t surface, int width, int height, float time) {
+__global__ void generatePlasma(cudaSurfaceObject_t surface, int width, int height, int depth, float time) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockDim.z * blockIdx.z + threadIdx.z;
 
-    if (x >= width || y >= height) {
+    if (x >= width || y >= height || z >= depth) {
         return;
     }
 
@@ -29,10 +30,10 @@ __global__ void generatePlasma(cudaSurfaceObject_t surface, int width, int heigh
 }
 
 /// @brief lock texture, run kernels to compute colors, unlock texture
-void runPlasmaKernel(cudaSurfaceObject_t surface, int width, int height, float time) {
+void runPlasmaKernel(cudaSurfaceObject_t surface, int width, int height, int depth, float time) {
     dim3 blockSize(16, 16);
     dim3 gridSize((width + blockSize.x - 1) / blockSize.x, (height + blockSize.y - 1) / blockSize.y);
 
-    generatePlasma<<<gridSize, blockSize>>>(surface, width, height, time);
+    generatePlasma<<<gridSize, blockSize>>>(surface, width, height, depth, time);
     CHECK_CUDA(cudaGetLastError());  // kernel launches are silent and asynchronous otherwise
 }

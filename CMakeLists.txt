@@ -15,8 +15,6 @@ target_sources(cuda_fluid_sim PRIVATE
     src/kernels/advection.h
     src/kernels/fluid.cu
     src/kernels/fluid.h
-    src/kernels/plasmaKernel.h
-    src/kernels/plasmaKernel.cu
     src/kernels/projection.h
     src/kernels/projection.cu
     src/helper.h
