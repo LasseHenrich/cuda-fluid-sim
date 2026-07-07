@@ -11,5 +11,8 @@
 1. **Velocity self-advection + mouse force injection:** Another, similar advection kernel, now for the velocity, and added functionality to inject force with the mouse (alongside the already existing dye injection).
 1. **Projection:** Writing kernels for calculating divergence, pressure, and subtracting the pressure gradient from the velocity.
 
+## Extension to 3D
+1. **Timing:** IN 2D, the kernels together need only 1-3 milliseconds on a 512x512 grid. I expect this to increase a lot when going to 3D, so have a comparison (and also for later optimization in 3D), the `CudaTimer` is introduced.
+
 ## Simple GUI
 We should have some GUI to play around with the simulation early on, since this will help in the debugging/optimization stage immensely.

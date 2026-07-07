@@ -113,6 +113,9 @@ We're trying to build a bridge between OpenGL and CUDA using the following objec
 #### `blitFBO`
 Helps with glitting, i.e. it wraps around the texture so the hardware can copy (*blit*) it directly to the monitor.
 
+### Timing
+In order to compare performance of pre- with post-optimization per kernel. We need to time CUDA kernels independently from each other without stalling the CPU Code. For this, we have a struct `CudaTimer` which uses events as shown in [this Cuda guide](https://developer.nvidia.com/blog/how-implement-performance-metrics-cuda-cc/).
+
 
 
 # Libraries

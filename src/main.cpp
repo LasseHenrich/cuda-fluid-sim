@@ -8,6 +8,7 @@
 #include "kernels/fluid.h"
 #include "kernels/plasmaKernel.h"
 #include "kernels/projection.h"
+#include "timing.h"
 
 const int WINDOW_WIDTH = 800;
 const int WINDOW_HEIGHT = 600;
@@ -15,7 +16,7 @@ const int WINDOW_HEIGHT = 600;
 const int GRID_WIDTH = 512;
 const int GRID_HEIGHT = 512;
 
-const int FORCE_SCALE = 1.0f;
+const float FORCE_SCALE = 1.0f;
 
 void processInput(GLFWwindow* window, FluidFields& fields) {
     // The last reported state for every key is saved in per-window state arrays and can be polled with glfwGetKey
@@ -108,15 +109,36 @@ int main() {
         time_prev = time;
 
         processInput(window, fields);
+
+        static CudaTimer velAdvectionTimer, projectionTimer, dyeAdvectionTimer, renderingTimer;
+
+        velAdvectionTimer.startTimer();
         advectVelocity(fields, deltaTime);
+        velAdvectionTimer.endTimer();
+
+        projectionTimer.startTimer();
         project(fields);
+        projectionTimer.endTimer();
+
+        dyeAdvectionTimer.startTimer();
         advectDye(fields, deltaTime);
+        dyeAdvectionTimer.endTimer();
 
         cudaSurfaceObject_t surface = mapTextureSurface(glTextureCudaHandle);
+        renderingTimer.startTimer();
         // runPlasmaKernel(surface, GRID_WIDTH, GRID_HEIGHT, time);
         renderDye(fields, surface);
+        renderingTimer.endTimer();
         unmapTextureSurface(glTextureCudaHandle, surface);
 
+        // print only occasionally, since the synching introduces overhead
+        static int frameCount = 0;
+        if (frameCount++ % 50 == 0) {
+            printf("velocity advection %.3f ms | projection %.3f ms | dye advection %.3f ms | rendering %.3f ms\n",
+                   velAdvectionTimer.elapsedTimeInMs(), projectionTimer.elapsedTimeInMs(),
+                   dyeAdvectionTimer.elapsedTimeInMs(), renderingTimer.elapsedTimeInMs());
+        }
+        
         glBindFramebuffer(GL_READ_FRAMEBUFFER, blitFBO);  // prepare fbo for blitting / read operation
         glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, glTexture,
                                0);  // attach CUDA-modified texture into container's reading slot

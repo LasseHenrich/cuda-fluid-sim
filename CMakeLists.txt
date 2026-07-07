@@ -23,6 +23,7 @@ target_sources(cuda_fluid_sim PRIVATE
     src/interop.h
     src/interop.cu
     src/main.cpp
+    src/timing.h
 )
 
 target_include_directories(cuda_fluid_sim PRIVATE src)
