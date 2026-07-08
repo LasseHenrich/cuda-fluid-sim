@@ -110,20 +110,3 @@ void injectForceAtPoint(FluidFields& fields, int x, int y, int z, float3 force) 
         fields.velocity[0], fields.width, fields.height, fields.depth, x, y, z, force);
     CHECK_CUDA(cudaGetLastError());
 }
-
-__global__ void dyeToColorKernel(const float* dye, cudaSurfaceObject_t surface, int width, int height, int depth) {
-    int x = blockDim.x * blockIdx.x + threadIdx.x;
-    int y = blockDim.y * blockIdx.y + threadIdx.y;
-    if (x >= width || y >= height) return;
-
-    float d = fminf(dye[idx3d(x, y, depth / 2, width, height)], 1.0f);  // clamp since dye can exceed 1
-    unsigned char c = (unsigned char)(d * 255.0f);
-    surf2Dwrite(make_uchar4(c, c, c, 255), surface, x * sizeof(uchar4), y);
-}
-
-void renderDye(FluidFields& fields, cudaSurfaceObject_t surface) {
-    dim3 threadsPerBlock = dim3(16, 16);
-    dim3 blocksPerGrid = dim3((fields.width + 15) / 16, (fields.height + 15) / 16);
-    dyeToColorKernel<<<blocksPerGrid, threadsPerBlock>>>(fields.dye[0], surface, fields.width, fields.height, fields.depth);
-    CHECK_CUDA(cudaGetLastError());
-}

@@ -30,6 +30,3 @@ void injectDyeAtPoint(FluidFields& fields, int x, int y, int z);
 
 /// @brief Inject force at the passed position in grid space with the passed forced ~> changes velocity field
 void injectForceAtPoint(FluidFields& fields, int x, int y, int z, float3 force);
-
-/// @brief Call a kernel to convert dye to color and write it to the surface texture
-void renderDye(FluidFields& fields, cudaSurfaceObject_t surface);

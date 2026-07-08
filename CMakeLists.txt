@@ -17,6 +17,8 @@ target_sources(cuda_fluid_sim PRIVATE
     src/kernels/fluid.h
     src/kernels/projection.h
     src/kernels/projection.cu
+    src/kernels/render.h
+    src/kernels/render.cu
     src/helper.h
     src/interop.h
     src/interop.cu

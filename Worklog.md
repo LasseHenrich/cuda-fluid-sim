@@ -15,7 +15,7 @@
 1. **Timing:** IN 2D, the kernels together need only 1-3 milliseconds on a 512x512 grid. I expect this to increase a lot when going to 3D, so have a comparison (and also for later optimization in 3D), the `CudaTimer` is introduced.
 1. **Refactoring**: separate helpers for bi/trilinear interpolation, backtracing, kernel launch configuration, and more.
 1. **Moving to 3D**: FluidFields (allocation), kernel launch configurations, trilinear interpolation for advection, 6 neighbors for projection computation, rendering the center slice, mouse interaction in the slice within 3D.
-1. Next: **3D visualization**, e.g. via ray marching
+1. **3D visualization:** OpenGL doesn't provide a simple *draw this volume* call. Todo
 
 ## Simple GUI
 We should have some GUI to play around with the simulation early on, since this will help in the debugging/optimization stage immensely.
