@@ -1,8 +1,6 @@
 #include "fluid.h"
 #include "helper.h"
 
-const int STROKE_RADIUS = 8;
-
 FluidFields allocateFields(int width, int height, int depth) {
     // Note that in the lecture we always used cudaMemcpy to init the device vectors,
     // but since we don't need to pass any data from the host, we can simply use cudaMemset instead
@@ -61,26 +59,26 @@ void initVortex(FluidFields& fields) {
 }
 
 __global__ void injectDyeAtPointKernel(float* dye, int width, int height, int depth, int centerX, int centerY,
-                                       int centerZ) {
+                                       int centerZ, float radius, float strength) {
     // Todo: We should launch just 2rx2r threads, not for the whole grid
     int threadX = blockDim.x * blockIdx.x + threadIdx.x;
     int threadY = blockDim.y * blockIdx.y + threadIdx.y;
     int threadZ = blockDim.z * blockIdx.z + threadIdx.z;
     if (threadX >= width || threadY >= height || threadZ >= depth) return;
 
-    float r = STROKE_RADIUS;
     float dx = threadX - centerX;
     float dy = threadY - centerY;
     float dz = threadZ - centerZ;
-    if (dx * dx + dy * dy + dz * dz < r * r) {
-        dye[idx3d(threadX, threadY, threadZ, width, height)] += 0.02f * expf(-(dx * dx + dy * dy + dz * dz) / (r * r));  // Gaussian splat
+    if (dx * dx + dy * dy + dz * dz < radius * radius) {
+        dye[idx3d(threadX, threadY, threadZ, width, height)] +=
+            strength * expf(-(dx * dx + dy * dy + dz * dz) / (radius * radius));  // Gaussian splat
     }
 }
 
-void injectDyeAtPoint(FluidFields& fields, int x, int y, int z) {
+void injectDyeAtPoint(FluidFields& fields, int x, int y, int z, float radius, float strength) {
     injectDyeAtPointKernel<<<getBlocksPerGrid(fields.width, fields.height, fields.depth), getThreadsPerBlock()>>>(
-        fields.dye[0], fields.width, fields.height, fields.depth, x, y,
-        z);  // directly write to [0]... we need no reading
+        fields.dye[0], fields.width, fields.height, fields.depth, x, y, z, radius,
+        strength);  // directly write to [0]... we need no reading
     CHECK_CUDA(cudaGetLastError());
 }
 
@@ -93,7 +91,7 @@ __global__ void injectForceAtPointKernel(float4* velocity, int width, int height
     int threadZ = blockDim.z * blockIdx.z + threadIdx.z;
     if (threadX >= width || threadY >= height || threadZ >= depth) return;
 
-    float r = STROKE_RADIUS;
+    float r = 8;  // not exposed at the moment, potential Todo
     float dx = threadX - centerX;
     float dy = threadY - centerY;
     float dz = threadZ - centerZ;

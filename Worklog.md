@@ -19,3 +19,4 @@
 
 ## Simple GUI
 1. **ImGUI integration**: Installation + integration and tested with a first dropdown to select the render mode.
+2. **GUI Controls**: Exposing sliceZ, force injection with strength, dye injection with radius+strength.

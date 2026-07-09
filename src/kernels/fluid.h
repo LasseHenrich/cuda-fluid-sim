@@ -26,7 +26,7 @@ void freeFields(FluidFields& fields);
 void initVortex(FluidFields& fields);
 
 /// @brief Inject some dye at the passed position in grid space ~> changes dye field
-void injectDyeAtPoint(FluidFields& fields, int x, int y, int z);
+void injectDyeAtPoint(FluidFields& fields, int x, int y, int z, float radius, float strength);
 
 /// @brief Inject force at the passed position in grid space with the passed forced ~> changes velocity field
 void injectForceAtPoint(FluidFields& fields, int x, int y, int z, float3 force);

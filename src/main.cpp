@@ -13,20 +13,27 @@
 #include "kernels/render.h"
 #include "timing.h"
 
-const int WINDOW_WIDTH = 800;
+const int WINDOW_WIDTH = 1000;
 const int WINDOW_HEIGHT = 600;
+const int SIM_VIEW_OFFSET_X = 200; // offset for simulation rendering
+const int SIM_WINDOW_WIDTH = WINDOW_WIDTH - SIM_VIEW_OFFSET_X;
 
 const int GRID_WIDTH = 128;
 const int GRID_HEIGHT = 128;
 const int GRID_DEPTH = 128;
 
-const float FORCE_SCALE = 1.0f;
+bool enableForceInjection = false;
+float forceScale = 1.0f;
+
+bool enableDyeInjection = true;
+int dyeStrokeRadius = 8;
+float dyeStrokeStrength = 0.02f;
 
 enum RenderMode { SLICE, RAY_MARCHING };
-RenderMode renderMode = RAY_MARCHING;
+RenderMode renderMode = SLICE;
 
 // render mode: slice
-const int SLICE_Z = GRID_DEPTH / 2;
+int sliceZ = GRID_DEPTH / 2;
 
 // render mode: ray marching
 const float ROTATION_SPEED = 0.5f;
@@ -39,8 +46,9 @@ void processGUI() {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    ImGui::SetNextWindowPos(ImVec2(10, 10));
-    ImGui::SetNextWindowSize(ImVec2(200, WINDOW_HEIGHT - 20));
+    int windowPadding = 0;
+    ImGui::SetNextWindowPos(ImVec2(windowPadding, windowPadding));
+    ImGui::SetNextWindowSize(ImVec2(SIM_VIEW_OFFSET_X - 2 * windowPadding, WINDOW_HEIGHT - 2 * windowPadding));
 
     ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
@@ -48,6 +56,23 @@ void processGUI() {
     int currentRenderMode = (int)renderMode;
     if (ImGui::Combo("Render Mode", &currentRenderMode, renderModeNames, IM_ARRAYSIZE(renderModeNames))) {
         renderMode = (RenderMode)currentRenderMode;
+    }
+
+    // show regardless of render mode, since it is also used by the injections
+    ImGui::SliderInt("Slice Z", &sliceZ, 0, GRID_DEPTH - 1);
+
+    ImGui::Checkbox("Enable Force Injection", &enableForceInjection);
+    if (enableForceInjection) {
+        ImGui::SliderFloat("Force Scale", &forceScale, 0.1f, 3.0f);
+    }
+
+    ImGui::Checkbox("Enable Dye Injection", &enableDyeInjection);
+    if(enableDyeInjection) {
+        ImGui::SliderInt("Stroke Radius", &dyeStrokeRadius, 2, 16);
+
+        int _strength = dyeStrokeStrength * 200;
+        ImGui::SliderInt("Stroke Strength", &_strength, 1, 10);
+        dyeStrokeStrength = _strength * 0.005f;
     }
 
     ImGui::End();
@@ -68,16 +93,18 @@ void processInput(GLFWwindow* window, FluidFields& fields) {
         glfwGetCursorPos(window, &screenX, &screenY);
 
         // convert from screen to grid space for calculation
-        int gridX = int((screenX / WINDOW_WIDTH) * GRID_WIDTH);
+        int gridX = int(((screenX - SIM_VIEW_OFFSET_X) / SIM_WINDOW_WIDTH) * GRID_WIDTH);
         int gridY =
             int((1.0 - screenY / WINDOW_HEIGHT) * GRID_HEIGHT);  // flip, since screen space starts in top-left corner
 
-        injectDyeAtPoint(fields, gridX, gridY, SLICE_Z);
+        if (enableDyeInjection) {
+            injectDyeAtPoint(fields, gridX, gridY, sliceZ, dyeStrokeRadius, dyeStrokeStrength);
+        }
 
-        if (wasPressed) {
+        if (wasPressed && enableForceInjection) {
             // Todo: Make force strength dependent on deltaTime
-            float3 force = make_float3((gridX - prevGridX) * FORCE_SCALE, (gridY - prevGridY) * FORCE_SCALE, 0);
-            injectForceAtPoint(fields, gridX, gridY, SLICE_Z, force);
+            float3 force = make_float3((gridX - prevGridX) * forceScale, (gridY - prevGridY) * forceScale, 0);
+            injectForceAtPoint(fields, gridX, gridY, sliceZ, force);
         }
 
         prevGridX = gridX;
@@ -110,12 +137,12 @@ void renderSim(FluidFields& fields, cudaGraphicsResource* glTextureCudaHandle, G
     renderingTimer.startTimer();
 
     if (renderMode == RenderMode::SLICE) {
-        renderSlice(fields, surface, RENDER_WIDTH, RENDER_HEIGHT, SLICE_Z);
+        renderSlice(fields, surface, RENDER_WIDTH, RENDER_HEIGHT, sliceZ);
     } else if (renderMode == RenderMode::RAY_MARCHING) {
         float angle = ROTATION_SPEED * time;
         float centerX = 0.5f * GRID_WIDTH, centerY = 0.5f * GRID_HEIGHT, centerZ = 0.5f * GRID_DEPTH;
         float3 forward = make_float3(-sinf(angle), -0.4f, -cosf(angle));
-        float3 camPos = make_float3(centerX - ORBIT_RADIUS * forward.x, centerY + GRID_HEIGHT * 0.75f,
+        float3 camPos = make_float3(centerX - ORBIT_RADIUS * forward.x, centerY + GRID_HEIGHT * 0.65f,
                                     centerZ - ORBIT_RADIUS * forward.z);
         float3 right = make_float3(cosf(angle), 0.0f, -sinf(angle));
         float3 up = make_float3(0.0f, 1.0f, 0.0f);
@@ -133,7 +160,7 @@ void renderSim(FluidFields& fields, cudaGraphicsResource* glTextureCudaHandle, G
                            0);  // attach CUDA-modified texture into container's reading slot
 
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);  // active window screen as draw destination
-    glBlitFramebuffer(0, 0, RENDER_WIDTH, RENDER_HEIGHT, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, GL_COLOR_BUFFER_BIT,
+    glBlitFramebuffer(0, 0, RENDER_WIDTH, RENDER_HEIGHT, SIM_VIEW_OFFSET_X, 0, WINDOW_WIDTH, WINDOW_HEIGHT, GL_COLOR_BUFFER_BIT,
                       GL_NEAREST);  // Blitting: Copies pixels from read destination to draw destination
 }
 

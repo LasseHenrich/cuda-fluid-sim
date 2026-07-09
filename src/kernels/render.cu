@@ -34,7 +34,7 @@ __global__ void renderVolumeKernel(const float* dye, cudaSurfaceObject_t surface
     // (forward) for every ray
     // ref. Kay's "Slab Method"
 
-    const float viewSize = 1.5f * boxWidth;  // ToDo: adjust if needed
+    const float viewSize = 1.7f * boxWidth;  // ToDo: expose via GUI
 
     // map pixel coordinates to "world space" (as defined by the box's bounds)
     float u = ((pixelX / (float)renderWidth) - 0.5f) * viewSize;  // [-viewSize/2, viewSize/2]
