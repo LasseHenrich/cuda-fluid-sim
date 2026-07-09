@@ -1,5 +1,8 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 
 #include <iostream>
 
@@ -20,8 +23,7 @@ const int GRID_DEPTH = 128;
 const float FORCE_SCALE = 1.0f;
 
 enum RenderMode { SLICE, RAY_MARCHING };
-
-const RenderMode RENDER_MODE = RAY_MARCHING;
+RenderMode renderMode = RAY_MARCHING;
 
 // render mode: slice
 const int SLICE_Z = GRID_DEPTH / 2;
@@ -32,6 +34,25 @@ const float ORBIT_RADIUS = 200.0f;
 const int RENDER_WIDTH = 512;
 const int RENDER_HEIGHT = 512;
 
+void processGUI() {
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    ImGui::SetNextWindowPos(ImVec2(10, 10));
+    ImGui::SetNextWindowSize(ImVec2(200, WINDOW_HEIGHT - 20));
+
+    ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+    const char* renderModeNames[] = {"Slice", "Ray Marching"};  // Todo: derive from enum
+    int currentRenderMode = (int)renderMode;
+    if (ImGui::Combo("Render Mode", &currentRenderMode, renderModeNames, IM_ARRAYSIZE(renderModeNames))) {
+        renderMode = (RenderMode)currentRenderMode;
+    }
+
+    ImGui::End();
+}
+
 void processInput(GLFWwindow* window, FluidFields& fields) {
     // The last reported state for every key is saved in per-window state arrays and can be polled with glfwGetKey
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
@@ -40,7 +61,8 @@ void processInput(GLFWwindow* window, FluidFields& fields) {
 
     static int prevGridX = 0, prevGridY = 0;
     static bool wasPressed = false;
-    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS &&
+        !ImGui::GetIO().WantCaptureMouse) {  // only if not interacting with GUI
         // screen space, so in interval [0, WINDOW_WIDTH-1] and [0, WINDOW_HEIGHT-1] resp.
         double screenX, screenY;
         glfwGetCursorPos(window, &screenX, &screenY);
@@ -81,18 +103,20 @@ void simulateStep(FluidFields& fields, float deltaTime, CudaTimer& velAdvectionT
     dyeAdvectionTimer.endTimer();
 }
 
-void render(FluidFields& fields, cudaGraphicsResource* glTextureCudaHandle, GLuint glTexture, GLuint blitFBO,
-            float time, CudaTimer& renderingTimer) {
+void renderSim(FluidFields& fields, cudaGraphicsResource* glTextureCudaHandle, GLuint glTexture, GLuint blitFBO,
+               float time, CudaTimer& renderingTimer) {
     cudaSurfaceObject_t surface = mapTextureSurface(glTextureCudaHandle);
+
     renderingTimer.startTimer();
 
-    if (RENDER_MODE == RenderMode::SLICE) {
+    if (renderMode == RenderMode::SLICE) {
         renderSlice(fields, surface, RENDER_WIDTH, RENDER_HEIGHT, SLICE_Z);
-    } else if (RENDER_MODE == RenderMode::RAY_MARCHING) {
+    } else if (renderMode == RenderMode::RAY_MARCHING) {
         float angle = ROTATION_SPEED * time;
         float centerX = 0.5f * GRID_WIDTH, centerY = 0.5f * GRID_HEIGHT, centerZ = 0.5f * GRID_DEPTH;
-        float3 forward = make_float3(-sinf(angle), 0.0f, -cosf(angle));
-        float3 camPos = make_float3(centerX - ORBIT_RADIUS * forward.x, centerY, centerZ - ORBIT_RADIUS * forward.z);
+        float3 forward = make_float3(-sinf(angle), -0.4f, -cosf(angle));
+        float3 camPos = make_float3(centerX - ORBIT_RADIUS * forward.x, centerY + GRID_HEIGHT * 0.75f,
+                                    centerZ - ORBIT_RADIUS * forward.z);
         float3 right = make_float3(cosf(angle), 0.0f, -sinf(angle));
         float3 up = make_float3(0.0f, 1.0f, 0.0f);
 
@@ -138,6 +162,11 @@ int main() {
         return -1;
     }
 
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGui_ImplGlfw_InitForOpenGL(window, true);  // init window and input handling
+    ImGui_ImplOpenGL3_Init("#version 330");      // init OpenGL rendering backend
+
     // allocate graphics memory
     GLuint glTexture;  // id for gpu texture
     glGenTextures(1, &glTexture);
@@ -171,14 +200,20 @@ int main() {
 
         static CudaTimer velAdvectionTimer, projectionTimer, dyeAdvectionTimer, renderingTimer;
 
-        // 1. INPUT PROCESSING
+        // 1. GUI CREATION AND PROCESSING
+        processGUI();
+
+        // 2. INPUT PROCESSING
         processInput(window, fields);
 
-        // 2. SIMULATION
+        // 3. SIMULATION
         simulateStep(fields, deltaTime, velAdvectionTimer, projectionTimer, dyeAdvectionTimer);
 
-        // 3. RENDERING
-        render(fields, glTextureCudaHandle, glTexture, blitFBO, time, renderingTimer);
+        // 4. SIMULATION RENDERING
+        renderSim(fields, glTextureCudaHandle, glTexture, blitFBO, time, renderingTimer);
+
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         // print only occasionally, since the synching introduces overhead
         static int frameCount = 0;
@@ -197,6 +232,11 @@ int main() {
     unregisterTexture(glTextureCudaHandle);
     glDeleteTextures(1, &glTexture);
     glDeleteFramebuffers(1, &blitFBO);
+
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+
     glfwTerminate();
 
     return 0;

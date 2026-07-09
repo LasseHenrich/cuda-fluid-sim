@@ -24,7 +24,7 @@ Make sure vcpkg is installed:
 git clone https://github.com/microsoft/vcpkg.git
 cd vcpkg
 .\bootstrap-vcpkg.bat
-.\vcpkg install glfw3 glew
+.\vcpkg install glfw3 glew imgui[glfw-binding,opengl3-binding]
 ```
 
 Create a build dir, configure, build, and run the code in PowerShell:

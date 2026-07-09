@@ -7,6 +7,7 @@ find_package(OpenGL REQUIRED)
 find_package(CUDAToolkit REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(glew REQUIRED)
+find_package(imgui REQUIRED)
 
 add_executable(cuda_fluid_sim)
 
@@ -33,4 +34,5 @@ target_link_libraries(cuda_fluid_sim PRIVATE
     GLEW::GLEW
     CUDA::cudart # cuda runtime
     OpenGL::GL
+    imgui::imgui
 )
