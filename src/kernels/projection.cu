@@ -12,12 +12,9 @@ __global__ void divergenceKernel(const float4* velocity, float* divergence, int 
     if (x >= width || y >= height || z >= depth) return;
 
     // boundary condition enforcement: Set to the same cell, so zero gradient (Neumann)
-    int xLeft = max(x - 1, 0);
-    int xRight = min(x + 1, width - 1);
-    int yBottom = max(y - 1, 0);
-    int yTop = min(y + 1, height - 1);
-    int zFront = max(z - 1, 0);
-    int zBack = min(z + 1, depth - 1);
+    int xLeft = max(x - 1, 0), xRight = min(x + 1, width - 1);
+    int yBottom = max(y - 1, 0), yTop = min(y + 1, height - 1);
+    int zFront = max(z - 1, 0), zBack = min(z + 1, depth - 1);
 
     float div =
         0.5f * (velocity[idx3d(xRight, y, z, width, height)].x - velocity[idx3d(xLeft, y, z, width, height)].x) +
@@ -36,12 +33,9 @@ __global__ void subtractGradientKernel(float4* velocity, const float* pressure, 
     int z = blockDim.z * blockIdx.z + threadIdx.z;
     if (x >= width || y >= height || z >= depth) return;
 
-    int xLeft = max(x - 1, 0);
-    int xRight = min(x + 1, width - 1);
-    int yBottom = max(y - 1, 0);
-    int yTop = min(y + 1, height - 1);
-    int zFront = max(z - 1, 0);
-    int zBack = min(z + 1, depth - 1);
+    int xLeft = max(x - 1, 0), xRight = min(x + 1, width - 1);
+    int yBottom = max(y - 1, 0), yTop = min(y + 1, height - 1);
+    int zFront = max(z - 1, 0), zBack = min(z + 1, depth - 1);
 
     float gradX = 0.5f * (pressure[idx3d(xRight, y, z, width, height)] - pressure[idx3d(xLeft, y, z, width, height)]);
     float gradY = 0.5f * (pressure[idx3d(x, yTop, z, width, height)] - pressure[idx3d(x, yBottom, z, width, height)]);

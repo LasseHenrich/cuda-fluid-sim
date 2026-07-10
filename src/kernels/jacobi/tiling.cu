@@ -43,11 +43,11 @@ __global__ void jacobiKernel_tiling(const float* pressureIn, float* pressureOut,
 }
 
 void jacobiIteration_tiling(FluidFields& fields, int iterationCount) {
-    dim3 j_threadsPerBlock(TILE_SIZE, TILE_SIZE, TILE_SIZE);
-    dim3 j_blocksPerGrid((fields.width + OUT_SIZE - 1) / OUT_SIZE, (fields.height + OUT_SIZE - 1) / OUT_SIZE,
+    dim3 threadsPerBlock(TILE_SIZE, TILE_SIZE, TILE_SIZE);
+    dim3 blocksPerGrid((fields.width + OUT_SIZE - 1) / OUT_SIZE, (fields.height + OUT_SIZE - 1) / OUT_SIZE,
                          (fields.depth + OUT_SIZE - 1) / OUT_SIZE);
     for (int i = 0; i < iterationCount; i++) {
-        jacobiKernel_tiling<<<j_blocksPerGrid, j_threadsPerBlock>>>(fields.pressure[0], fields.pressure[1], fields.divergence,
+        jacobiKernel_tiling<<<blocksPerGrid, threadsPerBlock>>>(fields.pressure[0], fields.pressure[1], fields.divergence,
                                                              fields.width, fields.height, fields.depth);
         std::swap(fields.pressure[0], fields.pressure[1]);
     }
