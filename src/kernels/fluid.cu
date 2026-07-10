@@ -14,6 +14,8 @@ FluidFields allocateFields(int width, int height, int depth) {
     size_t memSizeScalar_float1 = width * height * depth * sizeof(float);
     size_t memSizeScalar_float4 = width * height * depth * sizeof(float4);
 
+    size_t memSizeScalar_float1_half = 0.5f * memSizeScalar_float1;
+
     for (int i = 0; i < 2; i++) {
         CHECK_CUDA(cudaMalloc(&fields.velocity[i], memSizeScalar_float4));
         CHECK_CUDA(cudaMalloc(&fields.dye[i], memSizeScalar_float1));
@@ -24,7 +26,12 @@ FluidFields allocateFields(int width, int height, int depth) {
         CHECK_CUDA(cudaMemset(fields.pressure[i], 0, memSizeScalar_float1));
     }
 
+    CHECK_CUDA(cudaMalloc(&fields.pressureRed, memSizeScalar_float1_half));
+    CHECK_CUDA(cudaMalloc(&fields.pressureBlack, memSizeScalar_float1_half));
     CHECK_CUDA(cudaMalloc(&fields.divergence, memSizeScalar_float1));
+
+    CHECK_CUDA(cudaMemset(fields.pressureRed, 0, memSizeScalar_float1_half));
+    CHECK_CUDA(cudaMemset(fields.pressureBlack, 0, memSizeScalar_float1_half));
     CHECK_CUDA(cudaMemset(fields.divergence, 0, memSizeScalar_float1));
 
     return fields;
@@ -37,6 +44,8 @@ void freeFields(FluidFields& fields) {
         CHECK_CUDA(cudaFree(fields.pressure[i]));
     }
 
+    CHECK_CUDA(cudaFree(fields.pressureRed));
+    CHECK_CUDA(cudaFree(fields.pressureBlack));
     CHECK_CUDA(cudaFree(fields.divergence));
 }
 

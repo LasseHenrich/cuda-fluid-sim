@@ -42,7 +42,7 @@ __global__ void jacobiKernel_tiling(const float* pressureIn, float* pressureOut,
     pressureOut[idx3d(tx_global, ty_global, tz_global, width, height)] = p;
 }
 
-void jacobiIteration_tiling(FluidFields& fields, int iterationCount) {
+void computePressure_tiling(FluidFields& fields, int iterationCount) {
     dim3 threadsPerBlock(TILE_SIZE, TILE_SIZE, TILE_SIZE);
     dim3 blocksPerGrid((fields.width + OUT_SIZE - 1) / OUT_SIZE, (fields.height + OUT_SIZE - 1) / OUT_SIZE,
                          (fields.depth + OUT_SIZE - 1) / OUT_SIZE);

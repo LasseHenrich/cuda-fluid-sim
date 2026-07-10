@@ -19,15 +19,15 @@ __device__ float3 backTrace(const float4* velocity, int x, int y, int z, int wid
     return make_float3(sourceX, sourceY, sourceZ);
 }
 
-__device__ __host__ inline float4 operator*(float mult, float4 a) {
+__device__ float4 operator*(float mult, float4 a) {
     return make_float4(mult * a.x, mult * a.y, mult * a.z, 0); // we don't use the fourth dimension right now, so spare the extra computation...
 }
 
-__device__ __host__ inline float4 operator+(float4 a, float4 b) {
+__device__ float4 operator+(float4 a, float4 b) {
     return make_float4(a.x + b.x, a.y + b.y, a.z + b.z, 0);
 }
 
-__device__ __host__ inline float4 operator-(float4 a, float4 b) {
+__device__ float4 operator-(float4 a, float4 b) {
     return make_float4(a.x - b.x, a.y - b.y, a.z - b.z, 0);
 }
 

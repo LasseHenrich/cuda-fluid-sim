@@ -42,7 +42,7 @@ const int RENDER_WIDTH = 512;
 const int RENDER_HEIGHT = 512;
 
 // jacobi iteration for pressure evaluation
-JacobiEvalMode jacobiEvalMode = JacobiEvalMode::SIMPLE;
+JacobiEvalMode jacobiEvalMode = JacobiEvalMode::RBGS;
 int jacobiIterationCount = 40;
 
 void processGUI() {
@@ -89,6 +89,7 @@ void processGUI() {
     int currentJacobiEvalMode = (int)jacobiEvalMode;
     if (ImGui::Combo("Jacobi Evaluation Mode", &currentJacobiEvalMode, jacobiEvalModeNames, IM_ARRAYSIZE(jacobiEvalModeNames))) {
         jacobiEvalMode = (JacobiEvalMode)currentJacobiEvalMode;
+        // Todo: When switching to rbgs, we should initialize pressureRed and pressureBlack from pressure as a warm start for the search
     }
 
     ImGui::End();

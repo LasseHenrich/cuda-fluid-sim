@@ -24,4 +24,5 @@
 ## Optimizations
 1. **Tiling**: Simple tiling approach as shown in the lecture and exercise 3. Shown to not be materially better than simple/naive approach.
 1. **Next steps evaluation**, what other/further optimization might bring more benefit than simple tiling.
-2. **GUI Dropdown** for selecting the jacobi iteration algorithm, so far either simple and tiling, later slab and rbgs.
+1. **GUI Dropdown** for selecting the jacobi iteration algorithm, so far either simple and tiling, later slab and rbgs.
+1. **Red-Black Gauss-Seidel**: Faster technique for evaluating the pressure, implemented in both a simple and a well coalesced way.

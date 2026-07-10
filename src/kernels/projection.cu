@@ -1,7 +1,7 @@
-#include "kernels/jacobi/rbgs.h"
-#include "kernels/jacobi/simple.h"
-#include "kernels/jacobi/slab.h"
-#include "kernels/jacobi/tiling.h"
+#include "kernels/pressure/rbgs.h"
+#include "kernels/pressure/simple.h"
+#include "kernels/pressure/slab.h"
+#include "kernels/pressure/tiling.h"
 #include "projection.h"
 
 /// @brief Computes the change of the velocity field using finite differences
@@ -65,13 +65,13 @@ void project(FluidFields& fields, int jacobiIterationCount, JacobiEvalMode jacob
     CHECK_CUDA(cudaGetLastError());
 
     if (jacobiEvalMode == JacobiEvalMode::SIMPLE) {
-        jacobiIteration_simple(fields, jacobiIterationCount);
+        computePressure_simple(fields, jacobiIterationCount);
     } else if (jacobiEvalMode == JacobiEvalMode::TILING) {
-        jacobiIteration_tiling(fields, jacobiIterationCount);
+        computePressure_tiling(fields, jacobiIterationCount);
     } else if (jacobiEvalMode == JacobiEvalMode::SLAB) {
-        jacobiIteration_slab(fields, jacobiIterationCount);
+        computePressure_slab(fields, jacobiIterationCount);
     } else if (jacobiEvalMode == JacobiEvalMode::RBGS) {
-        jacobiIteration_rgbs(fields, jacobiIterationCount);
+        computePressure_rbgs(fields, jacobiIterationCount);
     } else {
         std::cerr << "Undefined jacobi eval mode" << std::endl;
     }

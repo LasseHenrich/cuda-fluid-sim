@@ -12,14 +12,14 @@ find_package(imgui REQUIRED)
 add_executable(cuda_fluid_sim)
 
 target_sources(cuda_fluid_sim PRIVATE
-    src/kernels/jacobi/rbgs.cu
-    src/kernels/jacobi/rbgs.h
-    src/kernels/jacobi/simple.cu
-    src/kernels/jacobi/simple.h
-    src/kernels/jacobi/slab.cu
-    src/kernels/jacobi/slab.h
-    src/kernels/jacobi/tiling.cu
-    src/kernels/jacobi/tiling.h
+    src/kernels/pressure/rbgs.cu
+    src/kernels/pressure/rbgs.h
+    src/kernels/pressure/simple.cu
+    src/kernels/pressure/simple.h
+    src/kernels/pressure/slab.cu
+    src/kernels/pressure/slab.h
+    src/kernels/pressure/tiling.cu
+    src/kernels/pressure/tiling.h
     src/kernels/advection.cu
     src/kernels/advection.h
     src/kernels/fluid.cu

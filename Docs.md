@@ -112,7 +112,9 @@ ToDo
 ##### 3. Red-Black Gauss-Seidel
 Here, the idea is to split the grid into a 3D checkerboard of *red* and *black* cells. Per iteration, we first update all red cells using the current black neighbors, and then vice versa. Updates can be done in-place, since red cells only read black cells and black ones only red ones. Note that this is not really a *Jacobi* iteration.
 
-A Jacobi iteration updates all cells simultaneously with old neighbor values. The argument for RBGS is that updated values are used *immediately*, so the convergence rate should double, i.e. the necessary iteration count (and memory accesses) halves for roughly the same accuracy.
+A Jacobi iteration updates all cells simultaneously with old neighbor values. The argument for RBGS is that updated values are used *immediately*, so the convergence rate should double, i.e. the necessary iteration count (and memory accesses) halves for roughly the same accuracy. However, implementing this naively (as in `rbgsKernel_simple`) will result in a big *memory access coalescing* issue: Because of the checkerboarding, the warp of 32 threads will need 2x the memory it should need!
+
+So, a better solution (ref. `rbgsKernel_coalesced`) packs all red and all black cells into their own contiguous arrays, ensuring that consecutive threads access contiguous memory addresses, eliminating divergence
 
 ## Main Loop Details
 The main loop functions like a *game loop*, i.e. polls click events, renders, then prepares the next frame.

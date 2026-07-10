@@ -21,7 +21,7 @@ __global__ void jacobiKernel_simple(const float* pressureIn, float* pressureOut,
     pressureOut[idx3d(x, y, z, width, height)] = p;
 }
 
-void jacobiIteration_simple(FluidFields& fields, int iterationCount) {
+void computePressure_simple(FluidFields& fields, int iterationCount) {
     dim3 threadsPerBlock(TILE_SIZE, TILE_SIZE, TILE_SIZE);
     dim3 blocksPerGrid((fields.width + OUT_SIZE - 1) / OUT_SIZE, (fields.height + OUT_SIZE - 1) / OUT_SIZE,
                          (fields.depth + OUT_SIZE - 1) / OUT_SIZE);

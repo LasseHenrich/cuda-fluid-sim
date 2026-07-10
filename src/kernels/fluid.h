@@ -6,13 +6,17 @@
 /// Indexing row-major (idx = y * width + x).
 /// Pairs of two for ping-ponging.
 struct FluidFields {
-    // Note: velocity could be float3, but float4 is exactly one full transaction per thread (16 bytes), so one full transaction
-    // ~> more natural for memory coalescing
+    // Note: velocity could be float3, but float4 is exactly one full transaction per thread (16 bytes), so one full
+    // transaction ~> more natural for memory coalescing
     float4* velocity[2];  // DEVICE. Velocity of the fluid at a point
+
     float* dye[2];  // DEVICE. Concentration of dye carried by the fluid at a point, used to calculate rendered color
-    float* pressure[2];  // DEVICE. Pressure of the fluid. Ping-ponging since the last frame's pressure is a very good
-                         // initial guess for the current frame
-    float* divergence;   // DEVICE. Net change of velocity. Computed anew each frame, no ping-pong needed.
+    float* pressure[2];    // DEVICE. Pressure of the fluid. Ping-ponging since the last frame's pressure is a very good
+                           // initial guess for the current frame
+    float* pressureRed;    // DEVICE. Solely needed to RBGS
+    float* pressureBlack;  // DEVICE. Solely needed to RBGS
+
+    float* divergence;         // DEVICE. Net change of velocity. Computed anew each frame, no ping-pong needed.
     int width, height, depth;  // HOST
 };
 
