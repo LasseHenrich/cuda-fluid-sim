@@ -14,6 +14,11 @@
         }                                                                                                   \
     } while (0)
 
+const int TILE_SIZE = 10;
+const int OUT_SIZE = TILE_SIZE - 2;
+
+enum JacobiEvalMode { SIMPLE, TILING, SLAB, RBGS };
+
 inline __device__ int idx3d(int x, int y, int z, int width, int height) {
     return (z * height + y) * width + x; // z is depth, y is height, x is width
 }

@@ -101,10 +101,15 @@ The projection step is divided into two operations, solving the Poisson-pressure
 All three projection kernels perform **output-centric** decompositions via **stencil computation**. That means, that each thread is computing the output value of one grid element by performing a computation over the neighborhood of that element.
 
 #### Optimization for Jacobi Iteration
+##### 1. Simple Tiling
 As one performance optimization, we use *tiling*, i.e. loading a chunk of multiple neighborhoods (a *tile*) into shared memory, which improves data locality and reduces memory access overhead. Threads collaboratively load a tile (plus its *halo* region) into shared memory, perform the computation locally, and then write the results back to global memory. One thread block is assigned to compute exactly one tile.
 
 Note that this alone actually *decreased* performance (see (measurements/Measurements.md)[Measurements.md]), since thread utilization goes down dramatically: In 3D, with a $8^3$ sized block, interior threads are only $(6/8)^3=42\%$. Slightly better at $10^3$ sized blocks with $58\%$, but still bad. Furthermore, with tiles of size $8^3$ and a $128^3$ grid, suddenly $(128/6)^3=10648$ blocks have to be launched, versus $(128/8)^3=4096$ without tiling, resulting in significant scheduling overhead.
 
+##### 2. Slab
+ToDo
+
+##### 3. Red-Black Gauss-Seidel
 
 ## Main Loop Details
 The main loop functions like a *game loop*, i.e. polls click events, renders, then prepares the next frame.

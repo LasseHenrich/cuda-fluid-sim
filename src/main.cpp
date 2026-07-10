@@ -30,7 +30,7 @@ int dyeStrokeRadius = 8;
 float dyeStrokeStrength = 0.02f;
 
 enum RenderMode { SLICE, RAY_MARCHING };
-RenderMode renderMode = SLICE;
+RenderMode renderMode = RenderMode::SLICE;
 
 // render mode: slice
 int sliceZ = GRID_DEPTH / 2;
@@ -41,7 +41,9 @@ const float ORBIT_RADIUS = 200.0f;
 const int RENDER_WIDTH = 512;
 const int RENDER_HEIGHT = 512;
 
-int jacobiIterations = 40;
+// jacobi iteration for pressure evaluation
+JacobiEvalMode jacobiEvalMode = JacobiEvalMode::SIMPLE;
+int jacobiIterationCount = 40;
 
 void processGUI() {
     ImGui_ImplOpenGL3_NewFrame();
@@ -81,7 +83,13 @@ void processGUI() {
 
     ImGui::SeparatorText("Algorithm Controls");
 
-    ImGui::SliderInt("Jacobi Iterations", &jacobiIterations, 20, 100);
+    ImGui::SliderInt("Jacobi Iterations", &jacobiIterationCount, 20, 100);
+
+    const char* jacobiEvalModeNames[] = { "Simple", "Tiling", "Slab", "Red-Black Gauss Seidel"};
+    int currentJacobiEvalMode = (int)jacobiEvalMode;
+    if (ImGui::Combo("Jacobi Evaluation Mode", &currentJacobiEvalMode, jacobiEvalModeNames, IM_ARRAYSIZE(jacobiEvalModeNames))) {
+        jacobiEvalMode = (JacobiEvalMode)currentJacobiEvalMode;
+    }
 
     ImGui::End();
 }
@@ -130,7 +138,7 @@ void simulateStep(FluidFields& fields, float deltaTime, CudaTimer& velAdvectionT
     velAdvectionTimer.endTimer();
 
     projectionTimer.startTimer();
-    project(fields, jacobiIterations);
+    project(fields, jacobiIterationCount, jacobiEvalMode);
     projectionTimer.endTimer();
 
     dyeAdvectionTimer.startTimer();

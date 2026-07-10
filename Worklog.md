@@ -20,3 +20,8 @@
 ## Simple GUI
 1. **ImGUI integration**: Installation + integration and tested with a first dropdown to select the render mode.
 2. **GUI Controls**: Exposing sliceZ, force injection with strength, dye injection with radius+strength.
+
+## Optimizations
+1. **Tiling**: Simple tiling approach as shown in the lecture and exercise 3. Shown to not be materially better than simple/naive approach.
+1. **Next steps evaluation**, what other/further optimization might bring more benefit than simple tiling.
+2. **GUI Dropdown** for selecting the jacobi iteration algorithm, so far either simple and tiling, later slab and rbgs.
