@@ -1,4 +1,4 @@
 #pragma once
 #include "fluid.h"
 
-void project(FluidFields& fields);
+void project(FluidFields& fields, int jacobiIterations);

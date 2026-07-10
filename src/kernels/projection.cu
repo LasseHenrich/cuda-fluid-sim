@@ -1,8 +1,6 @@
 #include "helper.h"
 #include "projection.h"
 
-const int JACOBI_ITERATIONS = 40;
-
 /// @brief Computes the change of the velocity field using finite differences
 __global__ void divergenceKernel(const float4* velocity, float* divergence, int width, int height, int depth) {
     int x = blockDim.x * blockIdx.x + threadIdx.x;
@@ -86,7 +84,7 @@ __global__ void noSlipKernel(float4* velocity, int width, int height, int depth)
     velocity[idx3d(x, y, z, width, height)] = make_float4(0, 0, 0, 0);
 }
 
-void project(FluidFields& fields) {
+void project(FluidFields& fields, int jacobiIterations) {
     dim3 threadsPerBlock = getThreadsPerBlock();
     dim3 blocksPerGrid = getBlocksPerGrid(fields.width, fields.height, fields.depth);
 
@@ -94,7 +92,7 @@ void project(FluidFields& fields) {
                                                          fields.height, fields.depth);
     CHECK_CUDA(cudaGetLastError());
 
-    for (int i = 0; i < JACOBI_ITERATIONS; i++) {
+    for (int i = 0; i < jacobiIterations; i++) {
         jacobiKernel<<<blocksPerGrid, threadsPerBlock>>>(fields.pressure[0], fields.pressure[1], fields.divergence,
                                                          fields.width, fields.height, fields.depth);
         std::swap(fields.pressure[0], fields.pressure[1]);

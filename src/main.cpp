@@ -41,6 +41,8 @@ const float ORBIT_RADIUS = 200.0f;
 const int RENDER_WIDTH = 512;
 const int RENDER_HEIGHT = 512;
 
+int jacobiIterations = 40;
+
 void processGUI() {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -51,6 +53,8 @@ void processGUI() {
     ImGui::SetNextWindowSize(ImVec2(SIM_VIEW_OFFSET_X - 2 * windowPadding, WINDOW_HEIGHT - 2 * windowPadding));
 
     ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+    ImGui::SeparatorText("Scene Controls");
 
     const char* renderModeNames[] = {"Slice", "Ray Marching"};  // Todo: derive from enum
     int currentRenderMode = (int)renderMode;
@@ -74,6 +78,10 @@ void processGUI() {
         ImGui::SliderInt("Stroke Strength", &_strength, 1, 10);
         dyeStrokeStrength = _strength * 0.005f;
     }
+
+    ImGui::SeparatorText("Algorithm Controls");
+
+    ImGui::SliderInt("Jacobi Iterations", &jacobiIterations, 20, 100);
 
     ImGui::End();
 }
@@ -122,7 +130,7 @@ void simulateStep(FluidFields& fields, float deltaTime, CudaTimer& velAdvectionT
     velAdvectionTimer.endTimer();
 
     projectionTimer.startTimer();
-    project(fields);
+    project(fields, jacobiIterations);
     projectionTimer.endTimer();
 
     dyeAdvectionTimer.startTimer();
