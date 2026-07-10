@@ -1,6 +1,9 @@
 #include "helper.h"
 #include "projection.h"
 
+const int TILE_SIZE = 10;             // with halo
+const int OUT_SIZE = TILE_SIZE - 2;  // interior cells
+
 /// @brief Computes the change of the velocity field using finite differences
 __global__ void divergenceKernel(const float4* velocity, float* divergence, int width, int height, int depth) {
     int x = blockDim.x * blockIdx.x + threadIdx.x;
@@ -8,6 +11,7 @@ __global__ void divergenceKernel(const float4* velocity, float* divergence, int 
     int z = blockDim.z * blockIdx.z + threadIdx.z;
     if (x >= width || y >= height || z >= depth) return;
 
+    // boundary condition enforcement: Set to the same cell, so zero gradient (Neumann)
     int xLeft = max(x - 1, 0);
     int xRight = min(x + 1, width - 1);
     int yBottom = max(y - 1, 0);
@@ -28,25 +32,43 @@ __global__ void jacobiKernel(const float* pressureIn, float* pressureOut, const 
                              int height, int depth) {
     // Todo: Cleanup by merging shared logic with divergenceKernel
 
-    int x = blockDim.x * blockIdx.x + threadIdx.x;
-    int y = blockDim.y * blockIdx.y + threadIdx.y;
-    int z = blockDim.z * blockIdx.z + threadIdx.z;
-    if (x >= width || y >= height || z >= depth) return;
+    __shared__ float tile[TILE_SIZE * TILE_SIZE * TILE_SIZE];
 
-    int xLeft = max(x - 1, 0);
-    int xRight = min(x + 1, width - 1);
-    int yBottom = max(y - 1, 0);
-    int yTop = min(y + 1, height - 1);
-    int zFront = max(z - 1, 0);
-    int zBack = min(z + 1, depth - 1);
+    // thread coordinates within block/tile (incl. halo), range [0, TILE_SIZE)
+    int tx_block = threadIdx.x, ty_block = threadIdx.y, tz_block = threadIdx.z;
 
-    float p =
-        (1 / 6.0f) * (pressureIn[idx3d(xLeft, y, z, width, height)] + pressureIn[idx3d(xRight, y, z, width, height)] +
-                      pressureIn[idx3d(x, yBottom, z, width, height)] + pressureIn[idx3d(x, yTop, z, width, height)] +
-                      pressureIn[idx3d(x, y, zFront, width, height)] + pressureIn[idx3d(x, y, zBack, width, height)] -
-                      divergence[idx3d(x, y, z, width, height)]);
+    // thread coordinates within global grid, range [blockIdx * OUT_SIZE - 1, blockIdx * OUT_SIZE - 1 + TILE_SIZE)
+    int tx_global = blockIdx.x * OUT_SIZE + tx_block - 1;
+    int ty_global = blockIdx.y * OUT_SIZE + ty_block - 1;
+    int tz_global = blockIdx.z * OUT_SIZE + tz_block - 1;
 
-    pressureOut[idx3d(x, y, z, width, height)] = p;
+    // again enforcing boundary conditions
+    int tx_global_clamped = min(max(tx_global, 0), width - 1);
+    int ty_global_clamped = min(max(ty_global, 0), height - 1);
+    int tz_global_clamped = min(max(tz_global, 0), depth - 1);
+
+    tile[idx3d(tx_block, ty_block, tz_block, TILE_SIZE, TILE_SIZE)] =
+        pressureIn[idx3d(tx_global_clamped, ty_global_clamped, tz_global_clamped, width, height)];
+
+    __syncthreads();
+
+    bool inHalo = tx_block == 0 || tx_block == TILE_SIZE - 1 || ty_block == 0 || ty_block == TILE_SIZE - 1 ||
+                  tz_block == 0 || tz_block == TILE_SIZE - 1;
+
+    if (inHalo || tx_global >= width || ty_global >= height || tz_global >= depth) return;
+
+    float pLeft = tile[idx3d(tx_block - 1, ty_block, tz_block, TILE_SIZE, TILE_SIZE)];
+    float pRight = tile[idx3d(tx_block + 1, ty_block, tz_block, TILE_SIZE, TILE_SIZE)];
+    float pBottom = tile[idx3d(tx_block, ty_block - 1, tz_block, TILE_SIZE, TILE_SIZE)];
+    float pTop = tile[idx3d(tx_block, ty_block + 1, tz_block, TILE_SIZE, TILE_SIZE)];
+    float pFront = tile[idx3d(tx_block, ty_block, tz_block - 1, TILE_SIZE, TILE_SIZE)];
+    float pBack = tile[idx3d(tx_block, ty_block, tz_block + 1, TILE_SIZE, TILE_SIZE)];
+
+    float div = divergence[idx3d(tx_global, ty_global, tz_global, width, height)];
+
+    float p = (1.0f / 6.0f) * (pLeft + pRight + pBottom + pTop + pFront + pBack - div);
+
+    pressureOut[idx3d(tx_global, ty_global, tz_global, width, height)] = p;
 }
 
 /// @brief Subtracts the pressure gradient from the velocity, where the gradient is calculated using finite differences
@@ -93,8 +115,11 @@ void project(FluidFields& fields, int jacobiIterations) {
     CHECK_CUDA(cudaGetLastError());
 
     for (int i = 0; i < jacobiIterations; i++) {
-        jacobiKernel<<<blocksPerGrid, threadsPerBlock>>>(fields.pressure[0], fields.pressure[1], fields.divergence,
-                                                         fields.width, fields.height, fields.depth);
+        dim3 j_threadsPerBlock(TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        dim3 j_blocksPerGrid((fields.width + OUT_SIZE - 1) / OUT_SIZE, (fields.height + OUT_SIZE - 1) / OUT_SIZE,
+                             (fields.depth + OUT_SIZE - 1) / OUT_SIZE);
+        jacobiKernel<<<j_blocksPerGrid, j_threadsPerBlock>>>(fields.pressure[0], fields.pressure[1], fields.divergence,
+                                                             fields.width, fields.height, fields.depth);
         std::swap(fields.pressure[0], fields.pressure[1]);
     }
     CHECK_CUDA(cudaGetLastError());

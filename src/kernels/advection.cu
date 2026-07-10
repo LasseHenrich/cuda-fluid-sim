@@ -31,7 +31,7 @@ __device__ __host__ inline float4 operator-(float4 a, float4 b) {
     return make_float4(a.x - b.x, a.y - b.y, a.z - b.z, 0);
 }
 
-/// @brief // trilinear interpolation between eight surrounding cells, (0,0,0) (left,bottom,front) to (1,1,1)
+/// @brief trilinear interpolation between eight surrounding cells, (0,0,0) (left,bottom,front) to (1,1,1)
 /// (right,top,back), to determine value of a quantity
 template <typename T>
 __device__ T trilinearlyInterpolate(const T* field, float x, float y, float z, int width, int height) {
