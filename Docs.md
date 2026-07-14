@@ -26,13 +26,17 @@ Note that *incompressible* just means that the volume of any subregion of the fl
 A quick note on divergence: It is the rate at which *density* exits a given region of space. Here, it measures the net change of velocity across a surface. To enforce the incompressibility assumption, the fluid always has to have zero divergence, hence we need a divergence-*free* vector field.
 
 The NV equations are three equations that we can solve for the quantities $u,v,p$. We can transform them using the *Helmholtz-Hodge Decomposition Theorem*, which states that any vector field can be decomposed into the sum of (i) a divergence-free vector field, and (ii) the gradient of a scalar field. Ref. the GPU Gems guide for more details, but we basically end up with
+
 $$
 \frac{\partial \vec u}{\partial t} = \mathbb P(-(\vec u\cdot\nabla)\vec u+\nu\nabla^2\vec u+ F),
 $$
+
 where $\mathbb P$ is a projection operator that projects a vector field $\vec w$ into its divergence-free component $\vec u$, $\nu$ is the viscosity, and $F$ are the external forces. So, from left to right inside the parentheses, we compute the advection, diffusion, and force terms separately. However, in a typical implementation, the solution is found by compositing operators for advection ($\mathbb A$), diffusion ($\mathbb D$), force application ($\mathbb F$), and projection ($\mathbb P$), where each operator takes a field as an input and produces a field as an output after a step, so a simulation step is
+
 $$
     \mathbb S(u) = \mathbb P\circ\mathbb F\circ\mathbb D\circ\mathbb A(u),
 $$
+
 with $t$ omitted for clarity.
 
 ## Discrete steps
@@ -48,18 +52,22 @@ u = subtractPressureGradient(u,p)
 ### Advection
 (Ref. GPU Gems 38.3.3)
 Rather than advecting quantities by computing where a particle moves over the current time step, we trace the trajectory of the particle from each grid cell back in time to its former position and copy the quantities at that position to the starting grid cell. To update a quantity $q$, which could be velocity, density, temperature etc., we use
+
 $$
     q(\vec x, t+\Delta t)=q(\vec x-\vec u(x,t)\Delta t, t).
 $$
 
 ### Diffusion
+
 $$
 (\textbf I-\nu\Delta t\nabla^2)\vec u(\vec x,t+\Delta t) = \vec u(\vec x,t),
 $$
+
 where $\textbf I$ is the identity matrix.
 
 ### Pressure
 We need to find the pressure $p$ such that its Laplacian is the divergence: $\nabla^2p = \text{div}$, and we also know that $\nabla^2p$ at a cell must be equal to the sum of the four neighboring cells' pressures minus 4 times the original cells pressure. We can use the Jacobi iteration to solve this by repeatedly making each cell locally consistent:
+
 $$
 x_{i,j}^{(k+1)}=\frac{x_{i-1,j}^{(k)}+x_{i+1,j}^{(k)}+x_{i,j-1}^{(k)}+x_{i,j+1}^{(k)}+\text{div}}{4}.
 $$
@@ -98,18 +106,24 @@ The projection step is divided into two operations, solving the Poisson-pressure
 
 (ref. GPU Gems guide table 38-1 for finite difference formulas and 38.3.3 §Projection for more explanations)
 
-All three projection kernels perform **output-centric** decompositions via **stencil computation**. That means, that each thread is computing the output value of one grid element by performing a computation over the neighborhood of that element.
+All three projection kernels perform **output-centric** decompositions via **stencil computation** (look up *Iterative Stencil Loop* (ISL)). That means, that each thread is computing the output value of one grid element by performing a computation over the neighborhood of that element.
 
 #### Optimization for Jacobi Iteration
 ##### 1. Simple Tiling
 As one performance optimization, we use *tiling*, i.e. loading a chunk of multiple neighborhoods (a *tile*) into shared memory, which improves data locality and reduces memory access overhead. Threads collaboratively load a tile (plus its *halo* region) into shared memory, perform the computation locally, and then write the results back to global memory. One thread block is assigned to compute exactly one tile.
 
-Note that this alone actually *decreased* performance (see (measurements/Measurements.md)[Measurements.md]), since thread utilization goes down dramatically: In 3D, with a $8^3$ sized block, interior threads are only $(6/8)^3=42\%$. Slightly better at $10^3$ sized blocks with $58\%$, but still bad. Furthermore, with tiles of size $8^3$ and a $128^3$ grid, suddenly $(128/6)^3=10648$ blocks have to be launched, versus $(128/8)^3=4096$ without tiling, resulting in significant scheduling overhead.
+Note that this alone actually *decreased* performance (see (measurements/Measurements.md)[Measurements.md]), since thread utilization goes down dramatically: In 3D, with a $8^3$ sized block, interior threads are only $(6/8)^3=42\%$. Slightly better at $10^3$ sized blocks with $51\%$, but still bad. Furthermore, with tiles of size $8^3$ and a $128^3$ grid, suddenly $\left\lceil\frac{128}{6}\right\rceil^3=10648$ blocks have to be launched, versus $\left(\frac{128}{8}\right)^3=4096$ without tiling, resulting in significant scheduling overhead.
 
-##### 2. Slab
-ToDo
+##### 2. Slab/2.5D
+Standard tiling has bad properties in 3D, like a small fraction of threads producing outputs, as well as a large number of threads and blocks having to be launched.
+
+The *Slab* method (aka. *2.5D* method) addresses both these problems: Each thread block is now responsible for one 2D tile, which it moves and calculates through the z-dimension of the grid. Therefore, we need less blocks (like in a $N^2$ instead of a $N^3$), and each thread does $N$ times the work &rarr; **Coarsening**. Because of the dimensionality reduction, it also increases the fraction of output threads: With $10^2$ sized tiles, the output fraction is $(8/10)^2=64\%$.
+
+In 2D, we can now also increase the block size per dimension, which also makes us think about **coalescing**: We can increase one dimension to 32, mapping perfectly into one warp. Setting the other dimension to 32 as well is possible and would provide perfect halo utilization, but I observed slightly better performance with 32x8, probably because 32x32 uses the maximum of 1024 threads per block, limiting scheduling flexibility. Similarly, 16x16, which exhibits a high output thread fraction but warp divergence, is noticeably slower. The output thread utilization for 32x8 is still at a good $180/256=70\%$.
 
 ##### 3. Red-Black Gauss-Seidel
+Slab/2.5D still doesn't address the biggest performance overhead, which is repeated reads and writes of the full field in device global memory across 40 iterations. *Red-Black Gauss-Seidel* (RBGS) can help:
+
 Here, the idea is to split the grid into a 3D checkerboard of *red* and *black* cells. Per iteration, we first update all red cells using the current black neighbors, and then vice versa. Updates can be done in-place, since red cells only read black cells and black ones only red ones. Note that this is not really a *Jacobi* iteration.
 
 A Jacobi iteration updates all cells simultaneously with old neighbor values. The argument for RBGS is that updated values are used *immediately*, so the convergence rate should double, i.e. the necessary iteration count (and memory accesses) halves for roughly the same accuracy. However, implementing this naively (as in `rbgsKernel_simple`) will result in a big *memory access coalescing* issue: Because of the checkerboarding, the warp of 32 threads will need 2x the memory it should need!

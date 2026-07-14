@@ -22,11 +22,8 @@ __global__ void jacobiKernel_simple(const float* pressureIn, float* pressureOut,
 }
 
 void computePressure_simple(FluidFields& fields, int iterationCount) {
-    dim3 threadsPerBlock(TILE_SIZE, TILE_SIZE, TILE_SIZE);
-    dim3 blocksPerGrid((fields.width + OUT_SIZE - 1) / OUT_SIZE, (fields.height + OUT_SIZE - 1) / OUT_SIZE,
-                         (fields.depth + OUT_SIZE - 1) / OUT_SIZE);
     for (int i = 0; i < iterationCount; i++) {
-        jacobiKernel_simple<<<blocksPerGrid, threadsPerBlock>>>(
+        jacobiKernel_simple<<<getBlocksPerGrid(fields.width, fields.height, fields.depth), getThreadsPerBlock()>>>(
             fields.pressure[0], fields.pressure[1], fields.divergence, fields.width, fields.height, fields.depth);
         std::swap(fields.pressure[0], fields.pressure[1]);
     }

@@ -26,3 +26,4 @@
 1. **Next steps evaluation**, what other/further optimization might bring more benefit than simple tiling.
 1. **GUI Dropdown** for selecting the jacobi iteration algorithm, so far either simple and tiling, later slab and rbgs.
 1. **Red-Black Gauss-Seidel**: Faster technique for evaluating the pressure, implemented in both a simple and a well coalesced way.
+1. **Slab method**: Advanced tiling method for increasing the fraction of output threads and decreasing the number of launched threads and blocks compared to standard tiling.
