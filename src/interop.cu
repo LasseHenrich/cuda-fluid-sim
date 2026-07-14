@@ -8,7 +8,7 @@ void registerTexture(unsigned int glTexture, cudaGraphicsResource** glTextureCud
 }
 
 void unregisterTexture(cudaGraphicsResource* glTextureCudaHandle) {
-    cudaGraphicsUnregisterResource(glTextureCudaHandle);
+    CHECK_CUDA(cudaGraphicsUnregisterResource(glTextureCudaHandle));
 }
 
 cudaSurfaceObject_t mapTextureSurface(cudaGraphicsResource* handle) {

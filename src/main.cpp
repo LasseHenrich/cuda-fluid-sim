@@ -4,6 +4,7 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
+#include <algorithm>
 #include <iostream>
 
 #include "interop.h"
@@ -15,7 +16,7 @@
 
 const int WINDOW_WIDTH = 1000;
 const int WINDOW_HEIGHT = 600;
-const int SIM_VIEW_OFFSET_X = 200; // offset for simulation rendering
+const int SIM_VIEW_OFFSET_X = 200;  // offset for simulation rendering
 const int SIM_WINDOW_WIDTH = WINDOW_WIDTH - SIM_VIEW_OFFSET_X;
 
 const int GRID_WIDTH = 128;
@@ -60,7 +61,7 @@ void processGUI() {
 
     ImGui::SeparatorText("Scene Controls");
 
-    const char* renderModeNames[] = {"Slice", "Ray Marching"};  // Todo: derive from enum
+    const char* renderModeNames[] = {"Slice", "Ray Marching"};
     int currentRenderMode = (int)renderMode;
     if (ImGui::Combo("Render Mode", &currentRenderMode, renderModeNames, IM_ARRAYSIZE(renderModeNames))) {
         renderMode = (RenderMode)currentRenderMode;
@@ -77,13 +78,13 @@ void processGUI() {
     if (enableForceInjection) {
         ImGui::SliderInt("Force Radius", &forceRadius, 5, 30);
 
-        int _scale = forceScale * 0.1f; 
+        int _scale = forceScale * 0.1f;
         ImGui::SliderInt("Force Scale", &_scale, 1, 10);
         forceScale = _scale * 10;
     }
 
     ImGui::Checkbox("Enable Dye Injection", &enableDyeInjection);
-    if(enableDyeInjection) {
+    if (enableDyeInjection) {
         ImGui::SliderInt("Stroke Radius", &dyeStrokeRadius, 2, 16);
 
         int _strength = dyeStrokeStrength * 2;
@@ -95,11 +96,13 @@ void processGUI() {
 
     ImGui::SliderInt("Jacobi Iterations", &jacobiIterationCount, 20, 100);
 
-    const char* jacobiEvalModeNames[] = { "Simple", "Tiling", "Slab", "Red-Black Gauss Seidel"};
+    const char* jacobiEvalModeNames[] = {"Simple", "Tiling", "Slab", "Red-Black Gauss Seidel"};
     int currentJacobiEvalMode = (int)jacobiEvalMode;
-    if (ImGui::Combo("Jacobi Evaluation Mode", &currentJacobiEvalMode, jacobiEvalModeNames, IM_ARRAYSIZE(jacobiEvalModeNames))) {
+    if (ImGui::Combo("Jacobi Evaluation Mode", &currentJacobiEvalMode, jacobiEvalModeNames,
+                     IM_ARRAYSIZE(jacobiEvalModeNames))) {
         jacobiEvalMode = (JacobiEvalMode)currentJacobiEvalMode;
-        // Todo: When switching to rbgs, we should initialize pressureRed and pressureBlack from pressure as a warm start for the search
+        // Todo: When switching to rbgs, we should initialize pressureRed and pressureBlack from pressure as a warm
+        // start for the search
     }
 
     ImGui::End();
@@ -124,12 +127,16 @@ void processInput(GLFWwindow* window, FluidFields& fields, float deltaTime) {
         int gridY =
             int((1.0 - screenY / WINDOW_HEIGHT) * GRID_HEIGHT);  // flip, since screen space starts in top-left corner
 
+        gridX = std::min(std::max(gridX, 0), GRID_WIDTH);
+        gridY = std::min(std::max(gridY, 0), GRID_HEIGHT);
+
         if (enableDyeInjection) {
             injectDyeAtPoint(fields, gridX, gridY, sliceZ, dyeStrokeRadius, dyeStrokeStrength * deltaTime);
         }
 
         if (wasPressed && enableForceInjection) {
-            float3 force = make_float3((gridX - prevGridX) * forceScale * deltaTime, (gridY - prevGridY) * forceScale * deltaTime, 0);
+            float3 force = make_float3((gridX - prevGridX) * forceScale * deltaTime,
+                                       (gridY - prevGridY) * forceScale * deltaTime, 0);
             injectForceAtPoint(fields, gridX, gridY, sliceZ, forceRadius, force);
         }
 
@@ -186,7 +193,8 @@ void renderSim(FluidFields& fields, cudaGraphicsResource* glTextureCudaHandle, G
                            0);  // attach CUDA-modified texture into container's reading slot
 
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);  // active window screen as draw destination
-    glBlitFramebuffer(0, 0, RENDER_WIDTH, RENDER_HEIGHT, SIM_VIEW_OFFSET_X, 0, WINDOW_WIDTH, WINDOW_HEIGHT, GL_COLOR_BUFFER_BIT,
+    glBlitFramebuffer(0, 0, RENDER_WIDTH, RENDER_HEIGHT, SIM_VIEW_OFFSET_X, 0, WINDOW_WIDTH, WINDOW_HEIGHT,
+                      GL_COLOR_BUFFER_BIT,
                       GL_NEAREST);  // Blitting: Copies pixels from read destination to draw destination
 }
 

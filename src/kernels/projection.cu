@@ -49,6 +49,9 @@ __global__ void noSlipKernel(float4* velocity, int width, int height, int depth)
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = blockDim.y * blockIdx.y + threadIdx.y;
     int z = blockDim.z * blockIdx.z + threadIdx.z;
+    if (x >= width || y >= height || z >= depth) return;  // still necessary
+
+    // check if on boundary
     if (x != 0 && x != width - 1 && y != 0 && y != height - 1 && z != 0 && z != depth - 1) return;
 
     velocity[idx3d(x, y, z, width, height)] = make_float4(0, 0, 0, 0);
@@ -61,6 +64,10 @@ void project(FluidFields& fields, int jacobiIterationCount, JacobiEvalMode jacob
     divergenceKernel<<<blocksPerGrid, threadsPerBlock>>>(fields.velocity[0], fields.divergence, fields.width,
                                                          fields.height, fields.depth);
     CHECK_CUDA(cudaGetLastError());
+
+    // ToDo: Measure before and after projection the maximum absolute divergence and the mean absolute divergence to
+    // validate whether projection actually reduces it, as well as to compare the different pressure computation
+    // implementations
 
     if (jacobiEvalMode == JacobiEvalMode::SIMPLE) {
         computePressure_simple(fields, jacobiIterationCount);

@@ -1,4 +1,5 @@
 # Simulation theory
+> Note that this section assumes 2D, as it simpler to understand and expands to 3D naturally, as explained partially in later sections. Also, ref. the [simpler, 2D version](https://github.com/LasseHenrich/cuda-fluid-sim/tree/simple-2D)
 Knowledge drawn mostly from [this **GPU Gems** guide](https://developer.nvidia.com/gpugems/gpugems/part-vi-beyond-triangles/chapter-38-fast-fluid-dynamics-simulation-gpu) and [this visualization](https://jamie-wong.com/2016/08/05/webgl-fluid-simulation/).
 
 ## Representation
@@ -19,10 +20,10 @@ Possibly various external forces like a fan blowing air.
 
 Note that *incompressible* just means that the volume of any subregion of the fluid is constant over time. It is *homogeneous* if its density is constant in space. Both assumptions together mean that density is constant in time and space.
 
-### Solving the Navier-Stockes equations
+### Solving the Navier-Stokes equations
 **Divergence** is the rate at which *density* exits a given region of space. Here, it measures the net change of velocity across a surface. To enforce the incompressibility assumption, the fluid always has to have zero divergence, hence we need a divergence-*free* vector field.
 
-The NV equations are three equations that we can solve for the quantities $u,v,p$. We can transform them using the *Helmholtz-Hodge Decomposition Theorem*, which states that any vector field can be decomposed into the sum of (i) a divergence-free vector field, and (ii) the gradient of a scalar field. Ref. the GPU Gems guide for more details, but we basically end up with
+The Navier-Stokes equations are three equations that we can solve for the quantities $u,v,p$. We can transform them using the *Helmholtz-Hodge Decomposition Theorem*, which states that any vector field can be decomposed into the sum of (i) a divergence-free vector field, and (ii) the gradient of a scalar field. Ref. the GPU Gems guide for more details, but we basically end up with
 
 $$
 \frac{\partial \vec u}{\partial t} = \mathbb P(-(\vec u\cdot\nabla)\vec u+\nu\nabla^2\vec u+ F),
@@ -89,14 +90,14 @@ A stencil can't safely read and write to the same field, since this could lead t
 (Ref. GPU Gems 38.3.3)
 
 ### Advection
-As described in the theory section and shown by the equation, instead of pushing dye forward out of each cell, each cell checks where its fluid came from and pulls the dye from there. This means that every thread *writes exactly one cell* and *only reads others* &rarr; this is perfect for a GPU implementation. In contrast, in a  *forward* setting, multiple threads may target the same cell, which would result in race conditions be need to be solved via atomics.
+As described in the theory section and shown by the equation, instead of pushing dye forward out of each cell, each cell checks where its fluid came from and pulls the dye from there. This means that every thread *writes exactly one cell* and *only reads others* &rarr; this is perfect for a GPU implementation. In contrast, in a  *forward* setting, multiple threads may target the same cell, which would result in race conditions that need to be solved via atomics.
 
-Note that since the *source* position mostly lands between cell centers, we bilinearly interpolate the 4 surrounding cells. Also, note that this numerical error causes some diffusion, which is wanted and not a bug (ref. GPU Gems 38.4.1; they don't actually implement separate diffusion).
+Note that since the *source* position mostly lands between cell centers, we bilinearly interpolate the 4 surrounding cells In 2D (and trilinearly interpolate the eight surrounding cells in 3D). Also, note that this numerical error causes some diffusion, which is wanted and not a bug (ref. GPU Gems 38.4.1; they don't actually implement separate diffusion).
 
 ### Projection
 The projection step is divided into two operations, solving the Poisson-pressure equation, then subtracting the gradient of the pressure from the velocity field. We therefore need kernels for computing the divergence of the velocity field, the Jacobi iteration program, and for subtracting the pressure gradient from the velocity field:
-1. The divergence kernel computes $\text{div} = \frac{\partial u}{\partial x} + \frac{\partial v}{\partial y}$ with finite differences:
-`div(x,y) = 0.5 * (vel[x+1].x − vel[x−1].x) + 0.5 * (vel[y+1].y − vel[y−1].y)`<br>
+1. In 2D, the divergence kernel computes $\text{div} = \frac{\partial u}{\partial x} + \frac{\partial v}{\partial y}$ with finite differences:
+`div(x,y) = 0.5 * (vel[x+1].x − vel[x−1].x) + 0.5 * (vel[y+1].y − vel[y−1].y)`. Of course, we just add the z-component in 3D.
 1. As described in the theory part, the pressure equation is solved with the Jacobi iteration. Applying it 40-80 times yields a good result, acc. to GPU Gems; we observed that 40 is enough.
 1. Then, a gradient subtraction kernel subtracts the pressure's gradient from the velocity. The gradient is again computed using finite differences.
 1. Lastly, we have a tiny kernel which enforces the no-slip boundary condition described earlier, setting the velocity to zero on the boundary.
@@ -121,20 +122,20 @@ __global__ void fullJacobiIteration(int iterationCount, ...) {
 ```
 This would be incorrect, since `__syncthreads()` only synchronizes threads in the same block. However, the stencil computation requires that *every* block has completed iteration `i` before moving on, because cells at a block boundary depend on outputs being produced by neighboring blocks. Instead, launching 40 kernels for the 40 iteration within a single stream guarantees that iteration `i` has finished before `i+1` starts.
 
-Also, there is practically no overhead for the 40 kernel launches. And again, please note that the `pressure[0]` and `pressure[1]` buffers live on the GPU at all times and do not have to be copied between host and device during launches.
+Also, the overhead for the 40 kernel launches is relatively small. And again, please note that the `pressure[0]` and `pressure[1]` buffers live on the GPU at all times and do not have to be copied between host and device during launches.
 
 #### Optimization for Pressure evaluation
 ##### 1. Simple Tiling
 As one performance optimization, we use *tiling*, i.e. loading a chunk of multiple neighborhoods (a *tile*) into shared memory, which improves data locality and reduces memory access overhead. Threads collaboratively load a tile (plus its *halo* region) into shared memory, perform the computation locally, and then write the results back to global memory. One thread block is assigned to compute exactly one tile.
 
-Note that this alone actually *decreased* performance (see (measurements/Measurements.md)[Measurements.md]), since thread utilization goes down dramatically: In 3D, with a $8^3$ sized block, interior threads are only $(6/8)^3=42\%$. Slightly better at $10^3$ sized blocks with $51\%$, but still bad. Furthermore, with tiles of size $8^3$ and a $128^3$ grid, suddenly $\left\lceil\frac{128}{6}\right\rceil^3=10648$ blocks have to be launched, versus $\left(\frac{128}{8}\right)^3=4096$ without tiling, resulting in significant scheduling overhead.
+Note that this alone actually *decreased* performance (see [Measurements.md](measurements/Measurements.md)), since thread utilization goes down dramatically: In 3D, with a $8^3$ sized block, interior threads are only $(6/8)^3=42\%$. Slightly better at $10^3$ sized blocks with $51\%$, but still bad. Furthermore, with tiles of size $8^3$ and a $128^3$ grid, suddenly $\left\lceil\frac{128}{6}\right\rceil^3=10648$ blocks have to be launched, versus $\left(\frac{128}{8}\right)^3=4096$ without tiling, resulting in significant scheduling overhead.
 
 ##### 2. Slab/2.5D
 Standard tiling has bad properties in 3D, like a small fraction of threads producing outputs, as well as a large number of threads and blocks having to be launched.
 
 The *Slab* method (aka. *2.5D* method) addresses both these problems: Each thread block is now responsible for one 2D tile, which it moves and calculates through the z-dimension of the grid. Therefore, we need less blocks (like in a $N^2$ instead of a $N^3$), and each thread does $N$ times the work &rarr; **Coarsening**. Because of the dimensionality reduction, it also increases the fraction of output threads: With $10^2$ sized tiles, the output fraction is $(8/10)^2=64\%$.
 
-In 2D, we can now also increase the block size per dimension, which also makes us think about **coalescing**: We can increase one dimension to 32, mapping perfectly into one warp. Setting the other dimension to 32 as well is possible and would provide perfect halo utilization, but I observed slightly better performance with 32x8, probably because 32x32 uses the maximum of 1024 threads per block, limiting scheduling flexibility. Similarly, 16x16, which exhibits a high output thread fraction but warp divergence, is noticeably slower. The output thread utilization for 32x8 is still at a good $180/256=70\%$.
+In 2D, we can now also increase the block size per dimension, which also makes us think about **coalescing**: We can increase one dimension to 32, mapping perfectly into one warp. Setting the other dimension to 32 as well is possible and would provide the best possible output fraction at $88\%$, but I observed slightly better performance with 32x8, probably because 32x32 uses the maximum of 1024 threads per block, limiting scheduling flexibility. Similarly, 16x16, which exhibits a high output thread fraction but warp divergence, is noticeably slower. The output thread utilization for 32x8 is still at a good $180/256=70\%$.
 
 ##### 3. Red-Black Gauss-Seidel
 Slab/2.5D still doesn't address the biggest performance overhead, which is repeated reads and writes of the full field in device global memory across 40 iterations. *Red-Black Gauss-Seidel* (RBGS) can help:
@@ -143,7 +144,7 @@ Here, the idea is to split the grid into a 3D checkerboard of *red* and *black* 
 
 A Jacobi iteration updates all cells simultaneously with old neighbor values. The argument for RBGS is that updated values are used *immediately*, so the convergence rate should double, i.e. the necessary iteration count (and memory accesses) halves for roughly the same accuracy. However, implementing this naively (as in `rbgsKernel_simple`) will result in a big *memory access coalescing* issue: Because of the checkerboarding, the warp of 32 threads will need 2x the memory it should need!
 
-So, a better solution (ref. `rbgsKernel_coalesced`) packs all red and all black cells into their own contiguous arrays, ensuring that consecutive threads access contiguous memory addresses, eliminating divergence
+So, a better solution (ref. `rbgsKernel_coalesced`) packs all red and all black cells into their own contiguous arrays, ensuring that consecutive threads access contiguous memory addresses, improving coalescing.
 
 #### A note on profiling
 The Nvidia Nsight Compute tool doesn't support Pascal GPUs anymore, which my GTX1060 belongs to. I also didn't get it to work with the 2019.5.1 version, which should support Pascal.
@@ -161,7 +162,7 @@ We're trying to build a bridge between OpenGL and CUDA using the following objec
 **registration bridge** that allows CUDA to temporarily lock `glTexture` and rewrite its pixels.
 
 #### `blitFBO`
-Helps with glitting, i.e. it wraps around the texture so the hardware can copy (*blit*) it directly to the monitor.
+Helps with blitting, i.e. it wraps around the texture so the hardware can copy (*blit*) it directly to the monitor.
 
 ### Timing
 In order to compare performance of pre- with post-optimization per kernel. We need to time CUDA kernels independently from each other without stalling the CPU Code. For this, we have a struct `CudaTimer` which uses events as shown in [this Cuda guide](https://developer.nvidia.com/blog/how-implement-performance-metrics-cuda-cc/).

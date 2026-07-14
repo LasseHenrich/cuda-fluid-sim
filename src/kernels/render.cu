@@ -65,7 +65,7 @@ __global__ void renderVolumeKernel(const float* dye, cudaSurfaceObject_t surface
     if (tFar > fmaxf(tClose, 0.0f)) {  // max with 0 to handle the case where the far plane is behind the camera,
                                        // i.e. camera is in the box
         const float stepSize = 0.5f;
-        const float absorption = 0.2f, gain = 0.2f;  // ToDo: adjust if needed
+        const float absorption = 0.2f, gain = 0.2f;  // adjust if needed...
 
         for (float t = fmaxf(tClose, 0.0f); t < tFar && transmittance > 0.01f;
              t += stepSize) {  // when transmittance is very low, we can stop early ~> remaining samples won't add much

@@ -2,8 +2,8 @@
 #include <cuda_runtime.h>
 
 /// @brief All fields used for simulation, most stored on device.
-/// Size GRID_WIDTH x GRID_HEIGHT.
-/// Indexing row-major (idx = y * width + x).
+/// Size GRID_WIDTH x GRID_HEIGHT x GRID_DEPTH.
+/// Indexing row-major (idx = (z * height + y) * width + x) ~> use helper.h's idx3d().
 /// Pairs of two for ping-ponging.
 struct FluidFields {
     // Note: velocity could be float3, but float4 is exactly one full transaction per thread (16 bytes), so one full

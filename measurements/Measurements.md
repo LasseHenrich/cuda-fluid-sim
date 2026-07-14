@@ -3,7 +3,7 @@
 ![alt text](simple-2D.png)
 
 # Simple 3D
-128³ grid, 40 jacobi iteraionts
+128³ grid, 40 jacobi iterations
 ![alt text](simple-3D_128.png)
 
 256³ grid, 40 jacobi iterations

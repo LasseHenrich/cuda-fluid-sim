@@ -1,20 +1,9 @@
-> Ongoing _GPU Computing_ lecture project
-
 # Real-Time 3D Fluid Simulator in CUDA
 
 ## Overview
-I aim to implement a real-time 3D fluid simulator based on the _Stable Fluids_ framework. The simulator will solve the Navier-Stokes equations on the GPU -- this parallelization should make performance much better than computing the PDEs on a CPU. The calculated fluid state will also need to be rendered on the screen.
+This is a real-time 3D fluid simulator based on the _Stable Fluids_ framework. The simulator solves the Navier-Stokes equations on the GPU, improving performance greatly over a CPU-based computation of the PDEs. The calculated fluid state is rendered on-screen with either a slice view or orthogonal ray-marching and a rotating camera. The application allows you to inject a fluid as well as force in real-time while exposing a GUI that let's you control various options about the injection, rendering and the projection algorithm. The implementation showcases GPU optimization concepts such as *Iterative Stencil Loops* (ISLs) via Tiling, memory coalescing and coarsening, the *Slab*/2.5D method and *Red-Black Gauss-Seidel* (RBGS).
 
-As a wrapper / core deliverable, my goal is to write an interactive application that allows for real-time force injection and smoke manipulation.
-
-Note that my key reference for my 2D version of this is [this GPU guide](https://developer.nvidia.com/gpugems/gpugems/part-vi-beyond-triangles/chapter-38-fast-fluid-dynamics-simulation-gpu). Based on this, the implementation will showcase concepts such as stencil tiling, memory coalescing and generally balancing high compute and bandwith utilization.
-
-## Possible scope expansions
-If enough time, I'd like to tackle the following challenges:
-1. Implement further __performance enhancements__ like a basic multigrid solver.
-1. Since I will likely use something OpenGL (or something similar) for rendering, data shouldn't be copied back to the host CPU just to be again pushed to OpenGL for rendering ~> It should be possible to __map CUDA device memory arrays directly to OpenGL Vertex Buffers__.
-1. __Benchmarking__ across various grid dimensions.
-
+[Docs.md](Docs.md) provides some theoretical and code documentation, [Measurements.md](measurements/Measurements.md) details benchmarks we conducted.
 
 # Setup, Building and Running
 
