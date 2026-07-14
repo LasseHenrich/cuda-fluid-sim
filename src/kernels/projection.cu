@@ -26,8 +26,6 @@ __global__ void divergenceKernel(const float4* velocity, float* divergence, int 
 
 /// @brief Subtracts the pressure gradient from the velocity, where the gradient is calculated using finite differences
 __global__ void subtractGradientKernel(float4* velocity, const float* pressure, int width, int height, int depth) {
-    // Todo: Cleanup by merging shared logic with divergenceKernel
-
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = blockDim.y * blockIdx.y + threadIdx.y;
     int z = blockDim.z * blockIdx.z + threadIdx.z;

@@ -11,7 +11,10 @@ struct CudaTimer {
         CHECK_CUDA(cudaEventCreate(&start));
         CHECK_CUDA(cudaEventCreate(&stop));
     }
-    // ToDo: We may want to use cudaEventDestroy in the destructor
+    ~CudaTimer() {
+        CHECK_CUDA(cudaEventDestroy(start));
+        CHECK_CUDA(cudaEventDestroy(stop));
+    }
 
     void startTimer() { CHECK_CUDA(cudaEventRecord(start)); }
 

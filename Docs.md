@@ -1,29 +1,26 @@
-# Resources
-Mostly from [this **GPU Gems** guide](https://developer.nvidia.com/gpugems/gpugems/part-vi-beyond-triangles/chapter-38-fast-fluid-dynamics-simulation-gpu) and [this visualization](https://jamie-wong.com/2016/08/05/webgl-fluid-simulation/).
-
 # Simulation theory
+Knowledge drawn mostly from [this **GPU Gems** guide](https://developer.nvidia.com/gpugems/gpugems/part-vi-beyond-triangles/chapter-38-fast-fluid-dynamics-simulation-gpu) and [this visualization](https://jamie-wong.com/2016/08/05/webgl-fluid-simulation/).
 
 ## Representation
-Most important is the velocity of a fluid for simulating it, so we represent the velocity in a vector field, i.e. a 2(or 3)-dimensional grid &rarr; for every position $\vec x=(x,y)$, there is an associated velocity at time $t$ &rarr; $\vec u(\vec x,t)=(u(\vec x,t),v(\vec x,t),w(\vec x,t))$. In every time step we update the grid with the correct velocity values by solving the Navier-Stokes equations.
+Most important is the velocity of a fluid for simulating it, so we represent the velocity in a vector field, i.e. a 2(or 3)-dimensional grid &rarr; for every position $\vec x=(x,y)$, there is an associated velocity at time $t$ &rarr; $\vec u(\vec x,t)=(u(\vec x,t),v(\vec x,t))$. In every time step we update the grid with the correct velocity values by solving the Navier-Stokes equations.
 
 ## Navier-Stokes equations
 The fluid is represented by its velocity field $\vec u(\vec x,t)$ and a scalar pressure field $p(\vec x,t)$, which vary in space and time &rarr; If we know velocity and pressure for $t=0$ and assume incompressibility and homogeneity, the fluid's state over time can be described by the Navier-Stokes equations for incompressible flow. We can break them up into the following four terms:
 
 1. **Advection**
-Transfer of a property from one place to another due to the motion of the fluid. I.e., if you put dye into moving water, the dye will be pulled (*advected*) through it. Note that the velocity of a fluid carries *itself* along as well, which is called *self-advection*
+Transfer of a property from one place to another due to the motion of the fluid. That means, if you put dye into moving water, the dye will be pulled (*advected*) through it. Note that the velocity of a fluid carries *itself* along as well, which is called *self-advection*.
 1. **Pressure**
 Builds up since particles move around and push each other. Any pressure naturally leads to acceleration.
 1. **Diffusion**
 Viscosity is a measure of how *thick* and therefore *resistive* to flow a fluid is. This resistance results in diffusion of the momentum.<br>
 &rarr; We can drop this for now by pretending that our fluid's viscosity is zero.
 1. **External Forces** 
-Possibly various external forces like a fan blowing air.<br>
-&rarr; We can also ignore this for now.
+Possibly various external forces like a fan blowing air.
 
 Note that *incompressible* just means that the volume of any subregion of the fluid is constant over time. It is *homogeneous* if its density is constant in space. Both assumptions together mean that density is constant in time and space.
 
 ### Solving the Navier-Stockes equations
-A quick note on divergence: It is the rate at which *density* exits a given region of space. Here, it measures the net change of velocity across a surface. To enforce the incompressibility assumption, the fluid always has to have zero divergence, hence we need a divergence-*free* vector field.
+**Divergence** is the rate at which *density* exits a given region of space. Here, it measures the net change of velocity across a surface. To enforce the incompressibility assumption, the fluid always has to have zero divergence, hence we need a divergence-*free* vector field.
 
 The NV equations are three equations that we can solve for the quantities $u,v,p$. We can transform them using the *Helmholtz-Hodge Decomposition Theorem*, which states that any vector field can be decomposed into the sum of (i) a divergence-free vector field, and (ii) the gradient of a scalar field. Ref. the GPU Gems guide for more details, but we basically end up with
 
@@ -82,7 +79,7 @@ Standard would be using a **collocated** grid, where velocity components and pre
 
 &rarr; Instead, we may need to use a **Marker and Cell** (MAC) grid layout, i.e. storing the pressure at the cell centers, but shifting horizontal velocity components to the vertical cell faces and vertical velocity components to the horizontal cell faces. Note that this matches the *Staggered Grid* described in the GPU Gems guide 38.5.3, reducing numerical oscillations and increasing the accuracy of many calculations.
 
-> First, I'll implement the collocated grid, possibly upgrading to MAC later
+> **Not implemented!** A collocated grid seems to work fine for now
 
 ## Double buffering (ping-pong)
 A stencil can't safely read and write to the same field, since this could lead to race conditions. So, we use double buffering with a pointer swap, i.e. reading from buffer A, writing to buffer B, swapping the pointers for the next pass. &rarr; We have two buffers for velocity, pressure and dye. Convention is index 0 = current state for reading, index 1 = next state for writing.
@@ -151,10 +148,10 @@ So, a better solution (ref. `rbgsKernel_coalesced`) packs all red and all black 
 #### A note on profiling
 The Nvidia Nsight Compute tool doesn't support Pascal GPUs anymore, which my GTX1060 belongs to. I also didn't get it to work with the 2019.5.1 version, which should support Pascal.
 
-## Main Loop Details
+## Main Loop
 The main loop functions like a *game loop*, i.e. polls click events, renders, then prepares the next frame.
 
-### Objects
+### Objects for CUDA&rarr;OpenGL communication
 We're trying to build a bridge between OpenGL and CUDA using the following objects.
 
 #### `glTexture`

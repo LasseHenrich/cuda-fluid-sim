@@ -92,28 +92,26 @@ void injectDyeAtPoint(FluidFields& fields, int x, int y, int z, float radius, fl
 }
 
 __global__ void injectForceAtPointKernel(float4* velocity, int width, int height, int depth, int centerX, int centerY,
-                                         int centerZ, float3 force) {
+                                         int centerZ, float radius, float3 force) {
     // Todo: We should launch just 2rx2r threads, not for the whole grid
-    // Todo: Cleanup, moving shared code with injectDyeAtPointKernel to a separate helper
     int threadX = blockDim.x * blockIdx.x + threadIdx.x;
     int threadY = blockDim.y * blockIdx.y + threadIdx.y;
     int threadZ = blockDim.z * blockIdx.z + threadIdx.z;
     if (threadX >= width || threadY >= height || threadZ >= depth) return;
 
-    float r = 8;  // not exposed at the moment, potential Todo
     float dx = threadX - centerX;
     float dy = threadY - centerY;
     float dz = threadZ - centerZ;
-    if (dx * dx + dy * dy + dz * dz < r * r) {
-        float multiplier = expf(-(dx * dx + dy * dy + dz * dz) / (r * r));  // Again gaussian falloff
+    if (dx * dx + dy * dy + dz * dz < radius * radius) {
+        float multiplier = expf(-(dx * dx + dy * dy + dz * dz) / (radius * radius));  // Again gaussian falloff
         velocity[idx3d(threadX, threadY, threadZ, width, height)].x += force.x * multiplier;
         velocity[idx3d(threadX, threadY, threadZ, width, height)].y += force.y * multiplier;
         velocity[idx3d(threadX, threadY, threadZ, width, height)].z += force.z * multiplier;
     }
 }
 
-void injectForceAtPoint(FluidFields& fields, int x, int y, int z, float3 force) {
+void injectForceAtPoint(FluidFields& fields, int x, int y, int z, float radius, float3 force) {
     injectForceAtPointKernel<<<getBlocksPerGrid(fields.width, fields.height, fields.depth), getThreadsPerBlock()>>>(
-        fields.velocity[0], fields.width, fields.height, fields.depth, x, y, z, force);
+        fields.velocity[0], fields.width, fields.height, fields.depth, x, y, z, radius, force);
     CHECK_CUDA(cudaGetLastError());
 }

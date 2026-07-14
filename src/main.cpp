@@ -23,11 +23,12 @@ const int GRID_HEIGHT = 128;
 const int GRID_DEPTH = 128;
 
 bool enableForceInjection = false;
-float forceScale = 1.0f;
+int forceRadius = 8;
+float forceScale = 50.0f;
 
 bool enableDyeInjection = true;
 int dyeStrokeRadius = 8;
-float dyeStrokeStrength = 0.02f;
+float dyeStrokeStrength = 2.0f;
 
 enum RenderMode { SLICE, RAY_MARCHING };
 RenderMode renderMode = RenderMode::SLICE;
@@ -40,6 +41,7 @@ const float ROTATION_SPEED = 0.5f;
 const float ORBIT_RADIUS = 200.0f;
 const int RENDER_WIDTH = 512;
 const int RENDER_HEIGHT = 512;
+float viewSizeMultiplier = 1.7f;
 
 // jacobi iteration for pressure evaluation
 JacobiEvalMode jacobiEvalMode = JacobiEvalMode::SIMPLE;
@@ -64,21 +66,29 @@ void processGUI() {
         renderMode = (RenderMode)currentRenderMode;
     }
 
+    if (renderMode == RenderMode::RAY_MARCHING) {
+        ImGui::SliderFloat("view size", &viewSizeMultiplier, 1.0f, 2.0f);
+    }
+
     // show regardless of render mode, since it is also used by the injections
     ImGui::SliderInt("Slice Z", &sliceZ, 0, GRID_DEPTH - 1);
 
     ImGui::Checkbox("Enable Force Injection", &enableForceInjection);
     if (enableForceInjection) {
-        ImGui::SliderFloat("Force Scale", &forceScale, 0.1f, 3.0f);
+        ImGui::SliderInt("Force Radius", &forceRadius, 5, 30);
+
+        int _scale = forceScale * 0.1f; 
+        ImGui::SliderInt("Force Scale", &_scale, 1, 10);
+        forceScale = _scale * 10;
     }
 
     ImGui::Checkbox("Enable Dye Injection", &enableDyeInjection);
     if(enableDyeInjection) {
         ImGui::SliderInt("Stroke Radius", &dyeStrokeRadius, 2, 16);
 
-        int _strength = dyeStrokeStrength * 200;
+        int _strength = dyeStrokeStrength * 2;
         ImGui::SliderInt("Stroke Strength", &_strength, 1, 10);
-        dyeStrokeStrength = _strength * 0.005f;
+        dyeStrokeStrength = _strength * 0.5f;
     }
 
     ImGui::SeparatorText("Algorithm Controls");
@@ -95,7 +105,7 @@ void processGUI() {
     ImGui::End();
 }
 
-void processInput(GLFWwindow* window, FluidFields& fields) {
+void processInput(GLFWwindow* window, FluidFields& fields, float deltaTime) {
     // The last reported state for every key is saved in per-window state arrays and can be polled with glfwGetKey
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, true);
@@ -115,13 +125,12 @@ void processInput(GLFWwindow* window, FluidFields& fields) {
             int((1.0 - screenY / WINDOW_HEIGHT) * GRID_HEIGHT);  // flip, since screen space starts in top-left corner
 
         if (enableDyeInjection) {
-            injectDyeAtPoint(fields, gridX, gridY, sliceZ, dyeStrokeRadius, dyeStrokeStrength);
+            injectDyeAtPoint(fields, gridX, gridY, sliceZ, dyeStrokeRadius, dyeStrokeStrength * deltaTime);
         }
 
         if (wasPressed && enableForceInjection) {
-            // Todo: Make force strength dependent on deltaTime
-            float3 force = make_float3((gridX - prevGridX) * forceScale, (gridY - prevGridY) * forceScale, 0);
-            injectForceAtPoint(fields, gridX, gridY, sliceZ, force);
+            float3 force = make_float3((gridX - prevGridX) * forceScale * deltaTime, (gridY - prevGridY) * forceScale * deltaTime, 0);
+            injectForceAtPoint(fields, gridX, gridY, sliceZ, forceRadius, force);
         }
 
         prevGridX = gridX;
@@ -164,7 +173,7 @@ void renderSim(FluidFields& fields, cudaGraphicsResource* glTextureCudaHandle, G
         float3 right = make_float3(cosf(angle), 0.0f, -sinf(angle));
         float3 up = make_float3(0.0f, 1.0f, 0.0f);
 
-        renderVolume(fields, surface, RENDER_WIDTH, RENDER_HEIGHT, camPos, forward, right, up);
+        renderVolume(fields, surface, RENDER_WIDTH, RENDER_HEIGHT, camPos, forward, right, up, viewSizeMultiplier);
     } else {
         std::cerr << "Invalid render mode" << std::endl;
     }
@@ -248,7 +257,7 @@ int main() {
         processGUI();
 
         // 2. INPUT PROCESSING
-        processInput(window, fields);
+        processInput(window, fields, deltaTime);
 
         // 3. SIMULATION
         simulateStep(fields, deltaTime, velAdvectionTimer, projectionTimer, dyeAdvectionTimer);

@@ -25,7 +25,7 @@ void renderSlice(FluidFields& fields, cudaSurfaceObject_t surface, int renderWid
 
 __global__ void renderVolumeKernel(const float* dye, cudaSurfaceObject_t surface, int boxWidth, int boxHeight,
                                    int boxDepth, int renderWidth, int renderHeight, float3 camPos, float3 forward,
-                                   float3 right, float3 up) {
+                                   float3 right, float3 up, float viewSizeMultiplier) {
     int pixelX = blockDim.x * blockIdx.x + threadIdx.x;
     int pixelY = blockDim.y * blockIdx.y + threadIdx.y;
     if (pixelX >= renderWidth || pixelY >= renderHeight) return;
@@ -34,7 +34,7 @@ __global__ void renderVolumeKernel(const float* dye, cudaSurfaceObject_t surface
     // (forward) for every ray
     // ref. Kay's "Slab Method"
 
-    const float viewSize = 1.7f * boxWidth;  // ToDo: expose via GUI
+    const float viewSize = boxWidth * viewSizeMultiplier;
 
     // map pixel coordinates to "world space" (as defined by the box's bounds)
     float u = ((pixelX / (float)renderWidth) - 0.5f) * viewSize;  // [-viewSize/2, viewSize/2]
@@ -88,11 +88,11 @@ __global__ void renderVolumeKernel(const float* dye, cudaSurfaceObject_t surface
 }
 
 void renderVolume(FluidFields& fields, cudaSurfaceObject_t surface, int renderWidth, int renderHeight, float3 camPos,
-                  float3 forward, float3 right, float3 up) {
+                  float3 forward, float3 right, float3 up, float viewSizeMultiplier) {
     dim3 threadsPerBlock = dim3(16, 16);
     dim3 blocksPerGrid = dim3((renderWidth + 15) / 16, (renderHeight + 15) / 16);
     renderVolumeKernel<<<blocksPerGrid, threadsPerBlock>>>(fields.dye[0], surface, fields.width, fields.height,
                                                            fields.depth, renderWidth, renderHeight, camPos, forward,
-                                                           right, up);
+                                                           right, up, viewSizeMultiplier);
     CHECK_CUDA(cudaGetLastError());
 }

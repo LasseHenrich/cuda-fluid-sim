@@ -9,4 +9,4 @@ void renderSlice(FluidFields& fields, cudaSurfaceObject_t surface, int renderWid
 
 /// @brief Calls a kernel to perform orthographic ray marching through the fluid volume and write the resulting color to the surface texture.
 void renderVolume(FluidFields& fields, cudaSurfaceObject_t surface, int renderWidth, int renderHeight, float3 camPos,
-                  float3 forward, float3 right, float3 up);
+                  float3 forward, float3 right, float3 up, float viewSizeMultiplier);

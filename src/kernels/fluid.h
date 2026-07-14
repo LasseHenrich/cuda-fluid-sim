@@ -33,4 +33,4 @@ void initVortex(FluidFields& fields);
 void injectDyeAtPoint(FluidFields& fields, int x, int y, int z, float radius, float strength);
 
 /// @brief Inject force at the passed position in grid space with the passed forced ~> changes velocity field
-void injectForceAtPoint(FluidFields& fields, int x, int y, int z, float3 force);
+void injectForceAtPoint(FluidFields& fields, int x, int y, int z, float radius, float3 force);

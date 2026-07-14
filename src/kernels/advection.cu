@@ -20,16 +20,13 @@ __device__ float3 backTrace(const float4* velocity, int x, int y, int z, int wid
 }
 
 __device__ float4 operator*(float mult, float4 a) {
-    return make_float4(mult * a.x, mult * a.y, mult * a.z, 0); // we don't use the fourth dimension right now, so spare the extra computation...
+    return make_float4(mult * a.x, mult * a.y, mult * a.z,
+                       0);  // we don't use the fourth dimension right now, so spare the extra computation...
 }
 
-__device__ float4 operator+(float4 a, float4 b) {
-    return make_float4(a.x + b.x, a.y + b.y, a.z + b.z, 0);
-}
+__device__ float4 operator+(float4 a, float4 b) { return make_float4(a.x + b.x, a.y + b.y, a.z + b.z, 0); }
 
-__device__ float4 operator-(float4 a, float4 b) {
-    return make_float4(a.x - b.x, a.y - b.y, a.z - b.z, 0);
-}
+__device__ float4 operator-(float4 a, float4 b) { return make_float4(a.x - b.x, a.y - b.y, a.z - b.z, 0); }
 
 /// @brief trilinear interpolation between eight surrounding cells, (0,0,0) (left,bottom,front) to (1,1,1)
 /// (right,top,back), to determine value of a quantity
@@ -77,9 +74,9 @@ __global__ void advectDyeKernel(const float4* velocity, const float* dyeIn, floa
     float sourceX = source.x;
     float sourceY = source.y;
     float sourceZ = source.z;
-    
+
     float dye = trilinearlyInterpolate(dyeIn, sourceX, sourceY, sourceZ, width, height);
-    
+
     dyeOut[idx3d(x, y, z, width, height)] = dye;
 }
 
@@ -92,8 +89,6 @@ void advectDye(FluidFields& fields, float deltaTime) {
 
 __global__ void advectVelocityKernel(const float4* velIn, float4* velOut, int width, int height, int depth,
                                      float deltaTime) {
-    // Todo: Cleanup, moving shared code with advectDyeKernel to a separate helper
-
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = blockDim.y * blockIdx.y + threadIdx.y;
     int z = blockDim.z * blockIdx.z + threadIdx.z;
