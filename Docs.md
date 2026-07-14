@@ -100,7 +100,7 @@ Note that since the *source* position mostly lands between cell centers, we bili
 The projection step is divided into two operations, solving the Poisson-pressure equation, then subtracting the gradient of the pressure from the velocity field. We therefore need kernels for computing the divergence of the velocity field, the Jacobi iteration program, and for subtracting the pressure gradient from the velocity field:
 1. The divergence kernel computes $\text{div} = \frac{\partial u}{\partial x} + \frac{\partial v}{\partial y}$ with finite differences:
 `div(x,y) = 0.5 * (vel[x+1].x − vel[x−1].x) + 0.5 * (vel[y+1].y − vel[y−1].y)`<br>
-1. As described in the theory part, the pressure equation is solved with the Jacobi iteration. Applying it 40-80 times yields a good result, acc. to GPU Gems.
+1. As described in the theory part, the pressure equation is solved with the Jacobi iteration. Applying it 40-80 times yields a good result, acc. to GPU Gems; we observed that 40 is enough.
 1. Then, a gradient subtraction kernel subtracts the pressure's gradient from the velocity. The gradient is again computed using finite differences.
 1. Lastly, we have a tiny kernel which enforces the no-slip boundary condition described earlier, setting the velocity to zero on the boundary.
 
@@ -108,7 +108,25 @@ The projection step is divided into two operations, solving the Poisson-pressure
 
 All three projection kernels perform **output-centric** decompositions via **stencil computation** (look up *Iterative Stencil Loop* (ISL)). That means, that each thread is computing the output value of one grid element by performing a computation over the neighborhood of that element.
 
-#### Optimization for Jacobi Iteration
+#### Simple Pressure evaluation (Jacobi Iteration)
+As described, we calculate the pressure by applying a Jacobi iteration 40 times, each iteration being executed via a separate kernel call and the pointers to the pressure buffer being swapped in between two calls. Note that this double-buffering is very efficient and $\mathcal{O}(1)$, since we're just swapping host pointers that point to device arrays.
+
+It would be tempting to avoid the 40 different kernel launches by moving the `for`-loop to the kernel, i.e. something like:
+
+```cpp
+__global__ void fullJacobiIteration(int iterationCount, ...) {
+    for (int i = 0; i < iterationCount; i++)  {
+        singleJacobiIteration();
+        __syncthreads();
+        swapBuffers();
+    }
+}
+```
+This would be incorrect, since `__syncthreads()` only synchronizes threads in the same block. However, the stencil computation requires that *every* block has completed iteration `i` before moving on, because cells at a block boundary depend on outputs being produced by neighboring blocks. Instead, launching 40 kernels for the 40 iteration within a single stream guarantees that iteration `i` has finished before `i+1` starts.
+
+Also, there is practically no overhead for the 40 kernel launches. And again, please note that the `pressure[0]` and `pressure[1]` buffers live on the GPU at all times and do not have to be copied between host and device during launches.
+
+#### Optimization for Pressure evaluation
 ##### 1. Simple Tiling
 As one performance optimization, we use *tiling*, i.e. loading a chunk of multiple neighborhoods (a *tile*) into shared memory, which improves data locality and reduces memory access overhead. Threads collaboratively load a tile (plus its *halo* region) into shared memory, perform the computation locally, and then write the results back to global memory. One thread block is assigned to compute exactly one tile.
 
@@ -129,6 +147,9 @@ Here, the idea is to split the grid into a 3D checkerboard of *red* and *black* 
 A Jacobi iteration updates all cells simultaneously with old neighbor values. The argument for RBGS is that updated values are used *immediately*, so the convergence rate should double, i.e. the necessary iteration count (and memory accesses) halves for roughly the same accuracy. However, implementing this naively (as in `rbgsKernel_simple`) will result in a big *memory access coalescing* issue: Because of the checkerboarding, the warp of 32 threads will need 2x the memory it should need!
 
 So, a better solution (ref. `rbgsKernel_coalesced`) packs all red and all black cells into their own contiguous arrays, ensuring that consecutive threads access contiguous memory addresses, eliminating divergence
+
+#### A note on profiling
+The Nvidia Nsight Compute tool doesn't support Pascal GPUs anymore, which my GTX1060 belongs to. I also didn't get it to work with the 2019.5.1 version, which should support Pascal.
 
 ## Main Loop Details
 The main loop functions like a *game loop*, i.e. polls click events, renders, then prepares the next frame.

@@ -42,7 +42,7 @@ const int RENDER_WIDTH = 512;
 const int RENDER_HEIGHT = 512;
 
 // jacobi iteration for pressure evaluation
-JacobiEvalMode jacobiEvalMode = JacobiEvalMode::RBGS;
+JacobiEvalMode jacobiEvalMode = JacobiEvalMode::SIMPLE;
 int jacobiIterationCount = 40;
 
 void processGUI() {
