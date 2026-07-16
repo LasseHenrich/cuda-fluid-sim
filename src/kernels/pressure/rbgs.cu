@@ -61,6 +61,11 @@ __global__ void rbgsKernel_simple(float* pressure, const float* divergence, int 
 }
 
 void computePressure_rbgs(FluidFields& fields, int iterationCount) {
+    if (fields.width % 2 != 0) {
+        std::cerr << "Error: RBGS requires even width" << std::endl;
+        return;
+    }
+    
     dim3 threadsPerBlock = getThreadsPerBlock();
     dim3 blocksPerGrid = getBlocksPerGrid(fields.width, fields.height, fields.depth);
     dim3 blocksPerGridRB = getBlocksPerGrid(fields.width / 2, fields.height, fields.depth);

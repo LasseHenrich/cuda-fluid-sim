@@ -5,6 +5,10 @@ FluidFields allocateFields(int width, int height, int depth) {
     // Note that in the lecture we always used cudaMemcpy to init the device vectors,
     // but since we don't need to pass any data from the host, we can simply use cudaMemset instead
 
+    if (width % 2 != 0) {
+        printf("Warning: width is not even ~> RBGS cannot be used");
+    }
+
     FluidFields fields;
 
     fields.width = width;
@@ -14,6 +18,7 @@ FluidFields allocateFields(int width, int height, int depth) {
     size_t memSizeScalar_float1 = width * height * depth * sizeof(float);
     size_t memSizeScalar_float4 = width * height * depth * sizeof(float4);
 
+    
     size_t memSizeScalar_float1_half = 0.5f * memSizeScalar_float1;
 
     for (int i = 0; i < 2; i++) {
