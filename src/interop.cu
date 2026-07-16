@@ -12,7 +12,7 @@ void unregisterTexture(cudaGraphicsResource* glTextureCudaHandle) {
 }
 
 cudaSurfaceObject_t mapTextureSurface(cudaGraphicsResource* handle) {
-    CHECK_CUDA(cudaGraphicsMapResources(1, &handle));  // locks texture and handing ownership to cuda
+    CHECK_CUDA(cudaGraphicsMapResources(1, &handle));  // locks texture and hands ownership to cuda
 
     cudaArray_t textureArray;
     CHECK_CUDA(cudaGraphicsSubResourceGetMappedArray(&textureArray, handle, 0, 0));
