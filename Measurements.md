@@ -1,18 +1,3 @@
-# Simple 2D
-512² grid
-|Measurement|Velocity Advection|Projection|Dye Advection|Rendering|
-|-|-|-|-|-|
-|1|0.036|1.302|0.038|0.039|
-|2|0.037|1.086|0.037|0.040|
-|3|0.036|1.407|0.037|0.185|
-|4|||||
-|5|||||
-|6|||||
-|7|||||
-|8|||||
-|9|||||
-|10|||||
-|**mean**|||||
 # Simple 3D (Slice View)
 ## 128³ grid, 40 jacobi iterations
 |Measurement|Velocity Advection|Projection|Dye Advection|Rendering|
