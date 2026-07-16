@@ -57,7 +57,7 @@ __global__ void noSlipKernel(float4* velocity, int width, int height, int depth)
     velocity[idx3d(x, y, z, width, height)] = make_float4(0, 0, 0, 0);
 }
 
-void project(FluidFields& fields, int jacobiIterationCount, JacobiEvalMode jacobiEvalMode) {
+void project(FluidFields& fields, int jacobiIterationCount, PressureEvalMode pressureEvalMode) {
     dim3 threadsPerBlock = getThreadsPerBlock();
     dim3 blocksPerGrid = getBlocksPerGrid(fields.width, fields.height, fields.depth);
 
@@ -69,13 +69,13 @@ void project(FluidFields& fields, int jacobiIterationCount, JacobiEvalMode jacob
     // validate whether projection actually reduces it, as well as to compare the different pressure computation
     // implementations
 
-    if (jacobiEvalMode == JacobiEvalMode::SIMPLE) {
+    if (pressureEvalMode == PressureEvalMode::SIMPLE) {
         computePressure_simple(fields, jacobiIterationCount);
-    } else if (jacobiEvalMode == JacobiEvalMode::TILING) {
+    } else if (pressureEvalMode == PressureEvalMode::TILING) {
         computePressure_tiling(fields, jacobiIterationCount);
-    } else if (jacobiEvalMode == JacobiEvalMode::SLAB) {
+    } else if (pressureEvalMode == PressureEvalMode::SLAB) {
         computePressure_slab(fields, jacobiIterationCount);
-    } else if (jacobiEvalMode == JacobiEvalMode::RBGS) {
+    } else if (pressureEvalMode == PressureEvalMode::RBGS) {
         computePressure_rbgs(fields, jacobiIterationCount);
     } else {
         std::cerr << "Undefined jacobi eval mode" << std::endl;

@@ -24,6 +24,10 @@
 ## Optimizations
 1. **Tiling**: Simple tiling approach as shown in the lecture and exercise 3. Shown to not be materially better than simple/naive approach.
 1. **Next steps evaluation**, what other/further optimization might bring more benefit than simple tiling.
-1. **GUI Dropdown** for selecting the jacobi iteration algorithm, so far either simple and tiling, later slab and rbgs.
+1. **GUI Dropdown** for selecting the jacobi iteration / pressure computation algorithm, so far either simple and tiling, later slab and rbgs.
 1. **Red-Black Gauss-Seidel**: Faster technique for evaluating the pressure, implemented in both a simple and a well coalesced way.
 1. **Slab method**: Advanced tiling method for increasing the fraction of output threads and decreasing the number of launched threads and blocks compared to standard tiling.
+
+## Wrapping up
+1. **Clean-Up**: Cleaning the code just a bit, e.g. through renaming variables or annotations
+1. **Measurments**: Measuring the runtimes of different algorithms and documenting them in [measurements](measurements/Measurements.md)

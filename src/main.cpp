@@ -45,7 +45,7 @@ const int RENDER_HEIGHT = 512;
 float viewSizeMultiplier = 1.7f;
 
 // jacobi iteration for pressure evaluation
-JacobiEvalMode jacobiEvalMode = JacobiEvalMode::SIMPLE;
+PressureEvalMode pressureEvalMode = PressureEvalMode::SIMPLE;
 int jacobiIterationCount = 40;
 
 void processGUI() {
@@ -97,10 +97,10 @@ void processGUI() {
     ImGui::SliderInt("Jacobi Iterations", &jacobiIterationCount, 20, 100);
 
     const char* jacobiEvalModeNames[] = {"Simple", "Tiling", "Slab", "Red-Black Gauss Seidel"};
-    int currentJacobiEvalMode = (int)jacobiEvalMode;
+    int currentJacobiEvalMode = (int)pressureEvalMode;
     if (ImGui::Combo("Jacobi Evaluation Mode", &currentJacobiEvalMode, jacobiEvalModeNames,
                      IM_ARRAYSIZE(jacobiEvalModeNames))) {
-        jacobiEvalMode = (JacobiEvalMode)currentJacobiEvalMode;
+        pressureEvalMode = (PressureEvalMode)currentJacobiEvalMode;
         // Todo: When switching to rbgs, we should initialize pressureRed and pressureBlack from pressure as a warm
         // start for the search
     }
@@ -155,7 +155,7 @@ void simulateStep(FluidFields& fields, float deltaTime, CudaTimer& velAdvectionT
     velAdvectionTimer.endTimer();
 
     projectionTimer.startTimer();
-    project(fields, jacobiIterationCount, jacobiEvalMode);
+    project(fields, jacobiIterationCount, pressureEvalMode);
     projectionTimer.endTimer();
 
     dyeAdvectionTimer.startTimer();
