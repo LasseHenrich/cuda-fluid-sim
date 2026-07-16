@@ -48,6 +48,8 @@ float viewSizeMultiplier = 1.7f;
 PressureEvalMode pressureEvalMode = PressureEvalMode::SIMPLE;
 int jacobiIterationCount = 40;
 
+bool printTimings = false;
+
 void processGUI() {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -104,6 +106,8 @@ void processGUI() {
         // Todo: When switching to rbgs, we should initialize pressureRed and pressureBlack from pressure as a warm
         // start for the search
     }
+
+    ImGui::Checkbox("Print Timings", &printTimings);
 
     ImGui::End();
 }
@@ -276,12 +280,14 @@ int main() {
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-        // print only occasionally, since the synching introduces overhead
-        static int frameCount = 0;
-        if (frameCount++ % 50 == 0) {
-            printf("velocity advection %.3f ms | projection %.3f ms | dye advection %.3f ms | rendering %.3f ms\n",
-                   velAdvectionTimer.elapsedTimeInMs(), projectionTimer.elapsedTimeInMs(),
-                   dyeAdvectionTimer.elapsedTimeInMs(), renderingTimer.elapsedTimeInMs());
+        if (printTimings) {
+            // print only occasionally, since the synching introduces overhead
+            static int frameCount = 0;
+            if (frameCount++ % 50 == 0) {
+                printf("velocity advection %.3f ms | projection %.3f ms | dye advection %.3f ms | rendering %.3f ms\n",
+                       velAdvectionTimer.elapsedTimeInMs(), projectionTimer.elapsedTimeInMs(),
+                       dyeAdvectionTimer.elapsedTimeInMs(), renderingTimer.elapsedTimeInMs());
+            }
         }
 
         glfwSwapBuffers(window);  // prepare next frame
