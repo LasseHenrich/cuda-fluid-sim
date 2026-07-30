@@ -1,6 +1,6 @@
 # Real-Time 3D Fluid Simulator in CUDA
 
-
+https://github.com/LasseHenrich/cuda-fluid-sim/blob/main/_readme-sources/video.mp4
 
 ## Overview
 This is a real-time 3D fluid simulator based on the _Stable Fluids_ framework. The simulator solves the Navier-Stokes equations on the GPU, improving performance greatly over a CPU-based computation of the PDEs. The calculated fluid state is rendered on-screen with either a slice view or orthogonal ray-marching and a rotating camera. The application allows you to inject a fluid as well as force in real-time while exposing a GUI that let's you control various options about the injection, rendering and the projection algorithm. The implementation showcases GPU optimization concepts such as *Iterative Stencil Loops* (ISLs) via Tiling, memory coalescing and coarsening, the *Slab*/2.5D method and *Red-Black Gauss-Seidel* (RBGS).
