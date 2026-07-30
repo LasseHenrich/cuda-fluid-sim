@@ -2,7 +2,7 @@
 
 __device__ int idxRB(int x, int y, int z, int width, int height) { return idx3d(x / 2, y, z, width / 2, height); }
 
-/// @brief more advanced rbgs implementation with fully coalesced memory accesses
+/// @brief more advanced rbgs implementation with much better coalesced memory accesses
 __global__ void rbgsKernel_coalesced(float* pressureRed, float* pressureBlack, const float* divergence, int width,
                                      int height, int depth, int parity) {
     int tx = blockDim.x * blockIdx.x + threadIdx.x;

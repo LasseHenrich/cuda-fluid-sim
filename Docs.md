@@ -1,5 +1,5 @@
 # Simulation theory
-> Note that this section assumes 2D, as it simpler to understand and expands to 3D naturally, as explained partially in later sections. Also, ref. the [simpler, 2D version](https://github.com/LasseHenrich/cuda-fluid-sim/tree/simple-2D)
+> Note that this section assumes 2D, as that is simpler to understand and expands to 3D naturally, as explained partially in later sections. Also, ref. the [simpler, 2D version](https://github.com/LasseHenrich/cuda-fluid-sim/tree/simple-2D).
 Knowledge drawn mostly from [this **GPU Gems** guide](https://developer.nvidia.com/gpugems/gpugems/part-vi-beyond-triangles/chapter-38-fast-fluid-dynamics-simulation-gpu) and [this visualization](https://jamie-wong.com/2016/08/05/webgl-fluid-simulation/).
 
 ## Representation

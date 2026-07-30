@@ -18,7 +18,6 @@ FluidFields allocateFields(int width, int height, int depth) {
     size_t memSizeScalar_float1 = width * height * depth * sizeof(float);
     size_t memSizeScalar_float4 = width * height * depth * sizeof(float4);
 
-    
     size_t memSizeScalar_float1_half = 0.5f * memSizeScalar_float1;
 
     for (int i = 0; i < 2; i++) {

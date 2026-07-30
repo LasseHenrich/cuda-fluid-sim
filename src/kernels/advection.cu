@@ -47,13 +47,13 @@ __device__ T trilinearlyInterpolate(const T* field, float x, float y, float z, i
 
     float fracX = x - x0, fracY = y - y0, fracZ = z - z0;
 
-    // 2. 4 lerps along x axis
+    // 2. 4 lerp along x axis
     T valFrontBottom = (1 - fracX) * val000 + fracX * val100;
     T valFrontTop = (1 - fracX) * val010 + fracX * val110;
     T valBackBottom = (1 - fracX) * val001 + fracX * val101;
     T valBackTop = (1 - fracX) * val011 + fracX * val111;
 
-    // 3. 2 lerps along y axis
+    // 3. 2 lerp along y axis
     T valFront = (1 - fracY) * valFrontBottom + fracY * valFrontTop;
     T valBack = (1 - fracY) * valBackBottom + fracY * valBackTop;
 
