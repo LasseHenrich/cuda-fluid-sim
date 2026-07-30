@@ -67,7 +67,7 @@ where $\textbf I$ is the identity matrix.
 We need to find the pressure $p$ such that its Laplacian is the divergence: $\nabla^2p = \text{div}$, and we also know that $\nabla^2p$ at a cell must be equal to the sum of the four neighboring cells' pressures minus 4 times the original cells pressure. We can use the Jacobi iteration to solve this by repeatedly making each cell locally consistent:
 
 $$
-x_{i,j}^{(k+1)}=\frac{x_{i-1,j}^{(k)}+x_{i+1,j}^{(k)}+x_{i,j-1}^{(k)}+x_{i,j+1}^{(k)}+\text{div}}{4}.
+x_{i,j}^{(k+1)}=\frac{x_{i-1,j}^{(k)}+x_{i+1,j}^{(k)}+x_{i,j-1}^{(k)}+x_{i,j+1}^{(k)}-\text{div}}{4}.
 $$
 
 ## Boundary Conditions
@@ -88,6 +88,11 @@ A stencil can't safely read and write to the same field, since this could lead t
 
 ## Kernels
 (Ref. GPU Gems 38.3.3)
+
+Order:
+1. advect velocity
+1. project velocity to make it divergence-free
+1. advect dye using projected velocity
 
 ### Advection
 As described in the theory section and shown by the equation, instead of pushing dye forward out of each cell, each cell checks where its fluid came from and pulls the dye from there. This means that every thread *writes exactly one cell* and *only reads others* &rarr; this is perfect for a GPU implementation. In contrast, in a  *forward* setting, multiple threads may target the same cell, which would result in race conditions that need to be solved via atomics.
